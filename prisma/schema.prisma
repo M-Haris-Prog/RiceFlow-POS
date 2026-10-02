@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  username     String     @unique
+  passwordHash String
+  displayName  String
+  createdAt    DateTime   @default(now())
+  purchases    Purchase[]
+  sales        Sale[]
+}
+
+model Variety {
+  id             String     @id @default(cuid())
+  name           String     @unique
+  currentStockKg Float      @default(0)
+  avgCostPerKg   Float      @default(0)
+  createdAt      DateTime   @default(now())
+  purchases      Purchase[]
+  sales          Sale[]
+}
+
+model Purchase {
+  id           String   @id @default(cuid())
+  varietyId    String
+  variety      Variety  @relation(fields: [varietyId], references: [id])
+  qtyKg        Float
+  ratePerKg    Float
+  totalCost    Float
+  supplierName String?
+  purchaseDate DateTime
+  createdById  String
+  createdBy    User     @relation(fields: [createdById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@index([varietyId])
+  @@index([purchaseDate])
+}
+
+model Sale {
+  id           String   @id @default(cuid())
+  varietyId    String
+  variety      Variety  @relation(fields: [varietyId], references: [id])
+  qtyKg        Float
+  ratePerKg    Float
+  totalRevenue Float
+  costAtSale   Float
+  profit       Float
+  customerName String?
+  saleDate     DateTime
+  createdById  String
+  createdBy    User     @relation(fields: [createdById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@index([varietyId])
+  @@index([saleDate])
+}
