@@ -12,24 +12,24 @@ export async function getDailySalesReport(date: Date) {
   const from = startOfDay(date);
   const to = endOfDay(date);
 
-  const sales = await prisma.sale.findMany({
-    where: { saleDate: { gte: from, lte: to } },
+  const items = await prisma.saleItem.findMany({
+    where: { bill: { billDate: { gte: from, lte: to } } },
     include: { variety: true },
-    orderBy: { saleDate: "asc" },
+    orderBy: { bill: { billDate: "asc" } },
   });
 
   const byVariety = new Map<string, DailyReportRow>();
-  for (const sale of sales) {
-    const existing = byVariety.get(sale.varietyId) ?? {
-      varietyName: sale.variety.name,
+  for (const item of items) {
+    const existing = byVariety.get(item.varietyId) ?? {
+      varietyName: item.variety.name,
       qtyKg: 0,
       revenue: 0,
       profit: 0,
     };
-    existing.qtyKg += sale.qtyKg;
-    existing.revenue += sale.totalRevenue;
-    existing.profit += sale.profit;
-    byVariety.set(sale.varietyId, existing);
+    existing.qtyKg += item.qtyKg;
+    existing.revenue += item.totalRevenue;
+    existing.profit += item.profit;
+    byVariety.set(item.varietyId, existing);
   }
 
   const rows = Array.from(byVariety.values()).sort((a, b) =>
@@ -44,7 +44,9 @@ export async function getDailySalesReport(date: Date) {
     { qtyKg: 0, revenue: 0, profit: 0 }
   );
 
-  return { date: from, rows, totals, saleCount: sales.length };
+  const billCount = await prisma.bill.count({ where: { billDate: { gte: from, lte: to } } });
+
+  return { date: from, rows, totals, billCount };
 }
 
 export interface ProfitLossRow {
@@ -61,9 +63,9 @@ export async function getProfitLossReport(from: Date, to: Date) {
   const rangeFrom = startOfDay(from);
   const rangeTo = endOfDay(to);
 
-  const [sales, purchases] = await Promise.all([
-    prisma.sale.findMany({
-      where: { saleDate: { gte: rangeFrom, lte: rangeTo } },
+  const [saleItems, purchases] = await Promise.all([
+    prisma.saleItem.findMany({
+      where: { bill: { billDate: { gte: rangeFrom, lte: rangeTo } } },
       include: { variety: true },
     }),
     prisma.purchase.findMany({
@@ -89,12 +91,12 @@ export async function getProfitLossReport(from: Date, to: Date) {
     return fresh;
   };
 
-  for (const sale of sales) {
-    const row = getRow(sale.varietyId, sale.variety.name);
-    row.qtySold += sale.qtyKg;
-    row.revenue += sale.totalRevenue;
-    row.cogs += sale.costAtSale;
-    row.profit += sale.profit;
+  for (const item of saleItems) {
+    const row = getRow(item.varietyId, item.variety.name);
+    row.qtySold += item.qtyKg;
+    row.revenue += item.totalRevenue;
+    row.cogs += item.costAtSale;
+    row.profit += item.profit;
   }
 
   for (const purchase of purchases) {

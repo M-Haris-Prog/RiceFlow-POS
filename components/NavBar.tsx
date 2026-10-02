@@ -5,10 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 
 const LINKS = [
   { href: "/", label: "Dashboard", icon: "🏠" },
+  { href: "/sales/new", label: "New Bill", icon: "🧾" },
   { href: "/purchases/new", label: "Purchase", icon: "📥" },
-  { href: "/sales/new", label: "Sale", icon: "📤" },
   { href: "/stock", label: "Stock", icon: "📦" },
-  { href: "/reports/daily", label: "Daily", icon: "🧾" },
+  { href: "/reports/daily", label: "Daily", icon: "📅" },
   { href: "/reports/profit-loss", label: "P&L", icon: "📊" },
 ];
 
@@ -25,10 +25,10 @@ export default function NavBar({ displayName }: { displayName: string }) {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden w-56 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
-        <div className="border-b border-slate-200 px-4 py-4">
-          <p className="text-sm font-semibold text-slate-900">Rice Shop</p>
-          <p className="text-xs text-slate-500">{displayName}</p>
+      <aside className="hidden w-56 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] md:flex">
+        <div className="border-b border-[var(--border)] px-4 py-4">
+          <p className="text-sm font-semibold text-[var(--foreground)]">Rice Shop</p>
+          <p className="text-xs text-[var(--muted)]">{displayName}</p>
         </div>
         <nav className="flex flex-1 flex-col gap-1 p-3">
           {LINKS.map((link) => {
@@ -39,8 +39,8 @@ export default function NavBar({ displayName }: { displayName: string }) {
                 href={link.href}
                 className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   active
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "text-slate-600 hover:bg-slate-100"
+                    ? "bg-[var(--accent-strong)]/15 text-[var(--accent)]"
+                    : "text-[var(--muted)] hover:bg-[var(--surface-hover)]"
                 }`}
               >
                 <span aria-hidden>{link.icon}</span>
@@ -49,10 +49,10 @@ export default function NavBar({ displayName }: { displayName: string }) {
             );
           })}
         </nav>
-        <div className="border-t border-slate-200 p-3">
+        <div className="border-t border-[var(--border)] p-3">
           <button
             onClick={handleLogout}
-            className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-600 hover:bg-slate-100"
+            className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-[var(--muted)] hover:bg-[var(--surface-hover)]"
           >
             Log out
           </button>
@@ -60,21 +60,21 @@ export default function NavBar({ displayName }: { displayName: string }) {
       </aside>
 
       {/* Mobile top bar */}
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:hidden">
+      <header className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3 md:hidden">
         <div>
-          <p className="text-sm font-semibold text-slate-900">Rice Shop</p>
-          <p className="text-xs text-slate-500">{displayName}</p>
+          <p className="text-sm font-semibold text-[var(--foreground)]">Rice Shop</p>
+          <p className="text-xs text-[var(--muted)]">{displayName}</p>
         </div>
         <button
           onClick={handleLogout}
-          className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+          className="rounded-lg px-3 py-1.5 text-sm font-medium text-[var(--muted)] hover:bg-[var(--surface-hover)]"
         >
           Log out
         </button>
       </header>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-[var(--border)] bg-[var(--surface)] pb-[env(safe-area-inset-bottom)] md:hidden">
         {LINKS.map((link) => {
           const active = pathname === link.href;
           return (
@@ -82,7 +82,7 @@ export default function NavBar({ displayName }: { displayName: string }) {
               key={link.href}
               href={link.href}
               className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${
-                active ? "text-emerald-700" : "text-slate-500"
+                active ? "text-[var(--accent)]" : "text-[var(--muted)]"
               }`}
             >
               <span className="text-lg" aria-hidden>

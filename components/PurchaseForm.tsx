@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { todayInputValue } from "@/lib/format";
 
 interface Variety {
   id: string;
@@ -10,16 +11,10 @@ interface Variety {
   avgCostPerKg: number;
 }
 
-function todayInputValue() {
-  const d = new Date();
-  const tzOffset = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - tzOffset).toISOString().slice(0, 10);
-}
-
-export default function PurchaseForm() {
+export default function PurchaseForm({ initialVariety = "" }: { initialVariety?: string }) {
   const router = useRouter();
   const [varieties, setVarieties] = useState<Variety[]>([]);
-  const [varietyName, setVarietyName] = useState("");
+  const [varietyName, setVarietyName] = useState(initialVariety);
   const [qtyKg, setQtyKg] = useState("");
   const [ratePerKg, setRatePerKg] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(todayInputValue());
@@ -74,28 +69,30 @@ export default function PurchaseForm() {
   return (
     <form onSubmit={handleSubmit} className="flex max-w-md flex-col gap-4">
       <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">Variety</label>
+        <label className="mb-1 block text-sm font-medium text-[var(--muted)]">Variety</label>
         <input
           list="variety-options"
           required
           value={varietyName}
           onChange={(e) => setVarietyName(e.target.value)}
           placeholder="e.g. Basmati"
-          className="h-12 w-full rounded-lg border border-slate-300 px-3 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+          className="h-12 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
         />
         <datalist id="variety-options">
           {varieties.map((v) => (
             <option key={v.id} value={v.name} />
           ))}
         </datalist>
-        <p className="mt-1 text-xs text-slate-400">
+        <p className="mt-1 text-xs text-[var(--muted)]">
           Pick an existing variety or type a new one.
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Quantity (kg)</label>
+          <label className="mb-1 block text-sm font-medium text-[var(--muted)]">
+            Quantity (kg)
+          </label>
           <input
             type="number"
             inputMode="decimal"
@@ -104,11 +101,13 @@ export default function PurchaseForm() {
             required
             value={qtyKg}
             onChange={(e) => setQtyKg(e.target.value)}
-            className="h-12 w-full rounded-lg border border-slate-300 px-3 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+            className="h-12 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Rate (per kg)</label>
+          <label className="mb-1 block text-sm font-medium text-[var(--muted)]">
+            Rate (per kg)
+          </label>
           <input
             type="number"
             inputMode="decimal"
@@ -117,43 +116,45 @@ export default function PurchaseForm() {
             required
             value={ratePerKg}
             onChange={(e) => setRatePerKg(e.target.value)}
-            className="h-12 w-full rounded-lg border border-slate-300 px-3 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+            className="h-12 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
           />
         </div>
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">Date</label>
+        <label className="mb-1 block text-sm font-medium text-[var(--muted)]">Date</label>
         <input
           type="date"
           required
           value={purchaseDate}
           onChange={(e) => setPurchaseDate(e.target.value)}
-          className="h-12 w-full rounded-lg border border-slate-300 px-3 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+          className="h-12 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
         />
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">
-          Supplier <span className="text-slate-400">(optional)</span>
+        <label className="mb-1 block text-sm font-medium text-[var(--muted)]">
+          Supplier <span className="text-[var(--muted)]">(optional)</span>
         </label>
         <input
           type="text"
           value={supplierName}
           onChange={(e) => setSupplierName(e.target.value)}
-          className="h-12 w-full rounded-lg border border-slate-300 px-3 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+          className="h-12 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
         />
       </div>
 
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <p className="rounded-lg bg-red-950 px-3 py-2 text-sm text-red-300">{error}</p>}
       {success && (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{success}</p>
+        <p className="rounded-lg bg-[var(--accent-strong)]/15 px-3 py-2 text-sm text-[var(--accent)]">
+          {success}
+        </p>
       )}
 
       <button
         type="submit"
         disabled={loading}
-        className="h-12 w-full rounded-lg bg-emerald-600 font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+        className="h-12 w-full rounded-lg bg-[var(--accent-strong)] font-medium text-black hover:brightness-110 disabled:opacity-60"
       >
         {loading ? "Saving..." : "Record Purchase"}
       </button>

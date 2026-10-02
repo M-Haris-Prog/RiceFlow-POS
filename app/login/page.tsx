@@ -36,13 +36,18 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <h1 className="mb-1 text-xl font-semibold text-slate-900">Rice Shop Inventory</h1>
-        <p className="mb-6 text-sm text-slate-500">Sign in to continue</p>
+      <div className="w-full max-w-sm rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+        <h1 className="mb-1 text-xl font-semibold text-[var(--foreground)]">
+          Rice Shop Inventory
+        </h1>
+        <p className="mb-6 text-sm text-[var(--muted)]">Sign in to continue</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label htmlFor="username" className="mb-1 block text-sm font-medium text-slate-700">
+            <label
+              htmlFor="username"
+              className="mb-1 block text-sm font-medium text-[var(--muted)]"
+            >
               Username
             </label>
             <input
@@ -53,12 +58,15 @@ export default function LoginPage() {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="h-12 w-full rounded-lg border border-slate-300 px-3 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+              className="h-12 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
+            <label
+              htmlFor="password"
+              className="mb-1 block text-sm font-medium text-[var(--muted)]"
+            >
               Password
             </label>
             <input
@@ -69,18 +77,18 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="h-12 w-full rounded-lg border border-slate-300 px-3 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+              className="h-12 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
             />
           </div>
 
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+            <p className="rounded-lg bg-red-950 px-3 py-2 text-sm text-red-300">{error}</p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="h-12 w-full rounded-lg bg-emerald-600 font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+            className="h-12 w-full rounded-lg bg-[var(--accent-strong)] font-medium text-black transition-colors hover:brightness-110 disabled:opacity-60"
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>

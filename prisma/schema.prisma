@@ -14,17 +14,20 @@ model User {
   displayName  String
   createdAt    DateTime   @default(now())
   purchases    Purchase[]
-  sales        Sale[]
+  bills        Bill[]
 }
 
 model Variety {
   id             String     @id @default(cuid())
   name           String     @unique
+  category       String?
   currentStockKg Float      @default(0)
   avgCostPerKg   Float      @default(0)
+  pricePerKg     Float      @default(0)
+  reorderLevel   Float      @default(0)
   createdAt      DateTime   @default(now())
   purchases      Purchase[]
-  sales          Sale[]
+  saleItems      SaleItem[]
 }
 
 model Purchase {
@@ -44,8 +47,32 @@ model Purchase {
   @@index([purchaseDate])
 }
 
-model Sale {
+model Bill {
+  id             String     @id @default(cuid())
+  billNumber     Int        @unique
+  customerName   String?
+  customerPhone  String?
+  subtotal       Float
+  discountType   String     @default("AMOUNT")
+  discountValue  Float      @default(0)
+  discountAmount Float      @default(0)
+  total          Float
+  paymentMethod  String     @default("CASH")
+  amountReceived Float
+  amountDue      Float      @default(0)
+  billDate       DateTime
+  createdById    String
+  createdBy      User       @relation(fields: [createdById], references: [id])
+  createdAt      DateTime   @default(now())
+  items          SaleItem[]
+
+  @@index([billDate])
+}
+
+model SaleItem {
   id           String   @id @default(cuid())
+  billId       String
+  bill         Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
   varietyId    String
   variety      Variety  @relation(fields: [varietyId], references: [id])
   qtyKg        Float
@@ -53,12 +80,7 @@ model Sale {
   totalRevenue Float
   costAtSale   Float
   profit       Float
-  customerName String?
-  saleDate     DateTime
-  createdById  String
-  createdBy    User     @relation(fields: [createdById], references: [id])
-  createdAt    DateTime @default(now())
 
   @@index([varietyId])
-  @@index([saleDate])
+  @@index([billId])
 }

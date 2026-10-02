@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatNumber, todayInputValue } from "@/lib/format";
 
 interface ProfitLossRow {
   varietyName: string;
@@ -17,16 +18,6 @@ interface ProfitLossReport {
   to: string;
   rows: ProfitLossRow[];
   totals: { revenue: number; cogs: number; profit: number; purchaseCost: number };
-}
-
-function formatNumber(n: number) {
-  return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-
-function todayInputValue() {
-  const d = new Date();
-  const tzOffset = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - tzOffset).toISOString().slice(0, 10);
 }
 
 function firstOfMonthInputValue() {
@@ -51,30 +42,30 @@ export default function ProfitLossPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold text-slate-900">Profit &amp; Loss</h1>
+      <h1 className="text-xl font-semibold text-[var(--foreground)]">Profit &amp; Loss</h1>
 
       <div className="grid max-w-md grid-cols-2 gap-3">
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">From</label>
+          <label className="mb-1 block text-sm font-medium text-[var(--muted)]">From</label>
           <input
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="h-12 w-full rounded-lg border border-slate-300 px-3 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+            className="h-12 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">To</label>
+          <label className="mb-1 block text-sm font-medium text-[var(--muted)]">To</label>
           <input
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="h-12 w-full rounded-lg border border-slate-300 px-3 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+            className="h-12 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
           />
         </div>
       </div>
 
-      {loading && <p className="text-sm text-slate-500">Loading...</p>}
+      {loading && <p className="text-sm text-[var(--muted)]">Loading...</p>}
 
       {report && !loading && (
         <>
@@ -85,16 +76,16 @@ export default function ProfitLossPage() {
             <StatCard label="Purchases (cost)" value={formatNumber(report.totals.purchaseCost)} />
           </div>
 
-          <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+          <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
             {report.rows.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-slate-500">
+              <p className="px-4 py-6 text-sm text-[var(--muted)]">
                 No purchases or sales in this range.
               </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted)]">
                       <th className="px-4 py-2 font-medium">Variety</th>
                       <th className="px-4 py-2 font-medium">Sold (kg)</th>
                       <th className="px-4 py-2 font-medium">Revenue</th>
@@ -106,16 +97,28 @@ export default function ProfitLossPage() {
                   </thead>
                   <tbody>
                     {report.rows.map((row) => (
-                      <tr key={row.varietyName} className="border-t border-slate-100">
-                        <td className="px-4 py-2 font-medium text-slate-900">
+                      <tr key={row.varietyName} className="border-t border-[var(--border)]">
+                        <td className="px-4 py-2 font-medium text-[var(--foreground)]">
                           {row.varietyName}
                         </td>
-                        <td className="px-4 py-2">{formatNumber(row.qtySold)}</td>
-                        <td className="px-4 py-2">{formatNumber(row.revenue)}</td>
-                        <td className="px-4 py-2">{formatNumber(row.cogs)}</td>
-                        <td className="px-4 py-2">{formatNumber(row.profit)}</td>
-                        <td className="px-4 py-2">{formatNumber(row.qtyPurchased)}</td>
-                        <td className="px-4 py-2">{formatNumber(row.purchaseCost)}</td>
+                        <td className="px-4 py-2 text-[var(--foreground)]">
+                          {formatNumber(row.qtySold)}
+                        </td>
+                        <td className="px-4 py-2 text-[var(--foreground)]">
+                          {formatNumber(row.revenue)}
+                        </td>
+                        <td className="px-4 py-2 text-[var(--foreground)]">
+                          {formatNumber(row.cogs)}
+                        </td>
+                        <td className="px-4 py-2 text-[var(--foreground)]">
+                          {formatNumber(row.profit)}
+                        </td>
+                        <td className="px-4 py-2 text-[var(--foreground)]">
+                          {formatNumber(row.qtyPurchased)}
+                        </td>
+                        <td className="px-4 py-2 text-[var(--foreground)]">
+                          {formatNumber(row.purchaseCost)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -131,9 +134,9 @@ export default function ProfitLossPage() {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-      <p className="text-xs font-medium text-slate-500">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-slate-900">{value}</p>
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+      <p className="text-xs font-medium text-[var(--muted)]">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">{value}</p>
     </div>
   );
 }

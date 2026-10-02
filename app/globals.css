@@ -1,9 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: light;
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  color-scheme: dark;
+  --background: #0a0b0a;
+  --surface: #141614;
+  --surface-hover: #1b1e1b;
+  --border: #272b27;
+  --foreground: #e7e9e6;
+  --muted: #8b9089;
+  --accent: #6ee7a0;
+  --accent-strong: #34d472;
 }
 
 body {
@@ -13,6 +19,34 @@ body {
 }
 
 input,
-select {
+select,
+textarea {
   font-size: 1rem;
+  color-scheme: dark;
+}
+
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.receipt-paper {
+  background: #fafaf7;
+  color: #111;
+  position: relative;
+  font-family: ui-monospace, SFMono-Regular, "Courier New", monospace;
+}
+
+.receipt-paper::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -11px;
+  height: 11px;
+  background-image: linear-gradient(135deg, #fafaf7 50%, transparent 50%),
+    linear-gradient(225deg, #fafaf7 50%, transparent 50%);
+  background-size: 16px 16px;
+  background-position: top left;
+  background-repeat: repeat-x;
 }

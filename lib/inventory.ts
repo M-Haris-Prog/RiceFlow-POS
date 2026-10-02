@@ -57,50 +57,113 @@ export async function recordPurchase(input: RecordPurchaseInput) {
   });
 }
 
-interface RecordSaleInput {
+export type DiscountType = "AMOUNT" | "PERCENT";
+export type PaymentMethod = "CASH" | "CARD" | "WALLET" | "CREDIT";
+
+interface BillLineInput {
   varietyName: string;
   qtyKg: number;
   ratePerKg: number;
-  saleDate: Date;
+}
+
+interface RecordBillInput {
+  items: BillLineInput[];
   customerName?: string | null;
+  customerPhone?: string | null;
+  discountType: DiscountType;
+  discountValue: number;
+  paymentMethod: PaymentMethod;
+  amountReceived?: number | null;
+  billDate: Date;
   createdById: string;
 }
 
-export async function recordSale(input: RecordSaleInput) {
+export async function recordBill(input: RecordBillInput) {
+  if (input.items.length === 0) {
+    throw new Error("A bill needs at least one item.");
+  }
+
   return prisma.$transaction(async (tx) => {
-    const variety = await tx.variety.findUnique({ where: { name: input.varietyName } });
+    const lineItems: {
+      varietyId: string;
+      varietyName: string;
+      qtyKg: number;
+      ratePerKg: number;
+      totalRevenue: number;
+      costAtSale: number;
+      profit: number;
+    }[] = [];
 
-    if (!variety || variety.currentStockKg < input.qtyKg) {
-      throw new InsufficientStockError(
-        input.varietyName,
-        variety?.currentStockKg ?? 0,
-        input.qtyKg
-      );
-    }
+    for (const item of input.items) {
+      const variety = await tx.variety.findUnique({ where: { name: item.varietyName } });
+      if (!variety || variety.currentStockKg < item.qtyKg) {
+        throw new InsufficientStockError(
+          item.varietyName,
+          variety?.currentStockKg ?? 0,
+          item.qtyKg
+        );
+      }
 
-    const costAtSale = variety.avgCostPerKg * input.qtyKg;
-    const totalRevenue = input.qtyKg * input.ratePerKg;
-    const profit = totalRevenue - costAtSale;
+      const costAtSale = variety.avgCostPerKg * item.qtyKg;
+      const totalRevenue = item.qtyKg * item.ratePerKg;
 
-    const sale = await tx.sale.create({
-      data: {
+      lineItems.push({
         varietyId: variety.id,
-        qtyKg: input.qtyKg,
-        ratePerKg: input.ratePerKg,
+        varietyName: variety.name,
+        qtyKg: item.qtyKg,
+        ratePerKg: item.ratePerKg,
         totalRevenue,
         costAtSale,
-        profit,
+        profit: totalRevenue - costAtSale,
+      });
+
+      await tx.variety.update({
+        where: { id: variety.id },
+        data: { currentStockKg: variety.currentStockKg - item.qtyKg },
+      });
+    }
+
+    const subtotal = lineItems.reduce((sum, i) => sum + i.totalRevenue, 0);
+    const discountAmount =
+      input.discountType === "PERCENT"
+        ? (subtotal * input.discountValue) / 100
+        : input.discountValue;
+    const total = Math.max(0, subtotal - discountAmount);
+    const amountReceived = input.amountReceived ?? total;
+    const amountDue = Math.max(0, total - amountReceived);
+
+    const lastBill = await tx.bill.findFirst({ orderBy: { billNumber: "desc" } });
+    const billNumber = (lastBill?.billNumber ?? 1000) + 1;
+
+    const bill = await tx.bill.create({
+      data: {
+        billNumber,
         customerName: input.customerName || null,
-        saleDate: input.saleDate,
+        customerPhone: input.customerPhone || null,
+        subtotal,
+        discountType: input.discountType,
+        discountValue: input.discountValue,
+        discountAmount,
+        total,
+        paymentMethod: input.paymentMethod,
+        amountReceived,
+        amountDue,
+        billDate: input.billDate,
         createdById: input.createdById,
+        items: {
+          create: lineItems.map((i) => ({
+            varietyId: i.varietyId,
+            qtyKg: i.qtyKg,
+            ratePerKg: i.ratePerKg,
+            totalRevenue: i.totalRevenue,
+            costAtSale: i.costAtSale,
+            profit: i.profit,
+          })),
+        },
       },
+      include: { items: { include: { variety: true } } },
     });
 
-    await tx.variety.update({
-      where: { id: variety.id },
-      data: { currentStockKg: variety.currentStockKg - input.qtyKg },
-    });
-
-    return sale;
+    return bill;
   });
 }

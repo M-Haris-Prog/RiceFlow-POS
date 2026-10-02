@@ -1,12 +1,13 @@
 # Rice Shop Inventory
 
-A shared inventory system for the rice shop: stock by variety, purchases, sales (with automatic stock deduction), balance stock, profit/loss, and a daily sales report. Built as one responsive web app so both owners can use it — one from the shop's computer, the other from a phone, anywhere.
+A shared inventory and point-of-sale system for the rice shop: a bill screen for ringing up sales (multiple varieties per bill, discounts, payment methods, a printable-looking receipt), purchases, variety-level stock with cost/selling price/margin, profit/loss, and a daily sales report. Built as one responsive web app so both owners can use it — one from the shop's computer, the other from a phone, anywhere.
 
 ## How it works
 
-- **Stock** is tracked per rice variety with a running balance (`currentStockKg`) and a weighted-average cost (`avgCostPerKg`).
+- **Stock** is tracked per rice variety with a running balance (`currentStockKg`), a weighted-average cost (`avgCostPerKg`), a selling price (`pricePerKg`), and a reorder threshold used to flag low stock.
 - **Recording a purchase** increases stock and recalculates the weighted-average cost.
-- **Recording a sale** checks there's enough stock, computes profit using the average cost at that moment, and decreases stock — all in one database transaction, so stock is always accurate even if both owners enter data at the same time.
+- **New Bill** is a point-of-sale screen: tap a variety card to add it to the bill, adjust kilos/rate right on the receipt slip, apply a discount (amount or percent), pick a payment method (cash/card/wallet/credit), and complete the sale. Stock for every item on the bill is checked and decreased in one database transaction, so stock stays accurate even if both owners enter data at the same time. Each item's profit is computed from the variety's average cost at that moment.
+- **Stock page** lists every variety with its cost, selling price, profit margin, and current stock (with a low-stock indicator), and lets you add, edit, or delete varieties, or jump to recording a purchase for one.
 - Both owners log in with their own username/password and see the same live data.
 
 ## Local development
@@ -68,5 +69,7 @@ Visit the `*.vercel.app` link Vercel gives you — from the shop computer's brow
 
 ## Notes
 
-- New rice varieties don't need to be set up ahead of time — just type a new name the first time you record a purchase or sale for it.
+- New rice varieties can be created from the Stock page ("Add variety"), or just by typing a new name the first time you record a purchase.
 - Selling more than what's in stock is blocked with a clear message, so the stock numbers always stay trustworthy.
+- The shop name and address shown on the receipt come from `NEXT_PUBLIC_SHOP_NAME` and `NEXT_PUBLIC_SHOP_ADDRESS` in `.env` — change those and restart the app to update them.
+- "Credit" is just a payment-method label for record-keeping — if you leave "Amount received" blank it's treated as paid in full; enter a smaller amount (or 0) to track how much is still due.
