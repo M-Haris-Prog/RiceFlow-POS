@@ -30,12 +30,19 @@ export const billSchema = z.object({
   billDate: z.coerce.date(),
 });
 
-export const varietyCreateSchema = z.object({
-  name: z.string().trim().min(1, "Name is required"),
-  category: z.string().trim().optional().or(z.literal("")),
-  pricePerKg: z.coerce.number().min(0).default(0),
-  reorderLevel: z.coerce.number().min(0).default(0),
-});
+export const varietyCreateSchema = z
+  .object({
+    name: z.string().trim().min(1, "Name is required"),
+    category: z.string().trim().optional().or(z.literal("")),
+    pricePerKg: z.coerce.number().min(0).default(0),
+    reorderLevel: z.coerce.number().min(0).default(0),
+    openingStockKg: z.coerce.number().min(0).default(0),
+    costPerKg: z.coerce.number().min(0).default(0),
+  })
+  .refine((v) => v.openingStockKg === 0 || v.costPerKg > 0, {
+    message: "Enter the cost per kg for the opening stock",
+    path: ["costPerKg"],
+  });
 
 export const varietyUpdateSchema = z.object({
   name: z.string().trim().min(1, "Name is required").optional(),

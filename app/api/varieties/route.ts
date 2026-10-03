@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { varietyCreateSchema } from "@/lib/validation";
+import { recordPurchase } from "@/lib/inventory";
 
 export async function GET() {
   const varieties = await prisma.variety.findMany({ orderBy: { name: "asc" } });
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "A variety with this name already exists" }, { status: 409 });
   }
 
-  const variety = await prisma.variety.create({
+  await prisma.variety.create({
     data: {
       name: parsed.data.name,
       category: parsed.data.category || null,
@@ -37,5 +38,19 @@ export async function POST(request: Request) {
     },
   });
 
+  // Opening stock goes through the normal purchase path so stock, average cost
+  // and the purchase history/reports all stay consistent.
+  if (parsed.data.openingStockKg > 0) {
+    await recordPurchase({
+      varietyName: parsed.data.name,
+      qtyKg: parsed.data.openingStockKg,
+      ratePerKg: parsed.data.costPerKg,
+      purchaseDate: new Date(),
+      supplierName: "Opening stock",
+      createdById: user.id,
+    });
+  }
+
+  const variety = await prisma.variety.findUnique({ where: { name: parsed.data.name } });
   return NextResponse.json({ ok: true, variety });
 }

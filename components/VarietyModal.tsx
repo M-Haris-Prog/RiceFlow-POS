@@ -7,10 +7,13 @@ export interface VarietyFormValues {
   category: string;
   pricePerKg: string;
   reorderLevel: string;
+  openingStockKg: string;
+  costPerKg: string;
 }
 
 interface VarietyModalProps {
   title: string;
+  showStockFields?: boolean;
   initialValues: VarietyFormValues;
   submitLabel: string;
   onClose: () => void;
@@ -19,6 +22,7 @@ interface VarietyModalProps {
 
 export default function VarietyModal({
   title,
+  showStockFields = false,
   initialValues,
   submitLabel,
   onClose,
@@ -64,6 +68,40 @@ export default function VarietyModal({
               className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
             />
           </div>
+          {showStockFields && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[var(--muted)]">
+                  Opening stock (kg)
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  value={values.openingStockKg}
+                  onChange={(e) => setValues((v) => ({ ...v, openingStockKg: e.target.value }))}
+                  placeholder="0"
+                  className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[var(--muted)]">
+                  Cost per kg
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  value={values.costPerKg}
+                  onChange={(e) => setValues((v) => ({ ...v, costPerKg: e.target.value }))}
+                  placeholder="What you paid"
+                  className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                />
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-[var(--muted)]">
@@ -82,7 +120,7 @@ export default function VarietyModal({
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-[var(--muted)]">
-                Reorder level (kg)
+                Low-stock alert (kg)
               </label>
               <input
                 type="number"

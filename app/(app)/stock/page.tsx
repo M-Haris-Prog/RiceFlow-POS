@@ -21,6 +21,8 @@ const EMPTY_FORM: VarietyFormValues = {
   category: "",
   pricePerKg: "",
   reorderLevel: "",
+  openingStockKg: "",
+  costPerKg: "",
 };
 
 export default function StockPage() {
@@ -90,6 +92,8 @@ export default function StockPage() {
         category: values.category,
         pricePerKg: Number(values.pricePerKg || 0),
         reorderLevel: Number(values.reorderLevel || 0),
+        openingStockKg: Number(values.openingStockKg || 0),
+        costPerKg: Number(values.costPerKg || 0),
       }),
     });
     const data = await res.json();
@@ -279,6 +283,7 @@ export default function StockPage() {
       {showAdd && (
         <VarietyModal
           title="Add variety"
+          showStockFields
           submitLabel="Add variety"
           initialValues={EMPTY_FORM}
           onClose={() => setShowAdd(false)}
@@ -295,6 +300,8 @@ export default function StockPage() {
             category: editing.category ?? "",
             pricePerKg: String(editing.pricePerKg),
             reorderLevel: String(editing.reorderLevel),
+            openingStockKg: "",
+            costPerKg: "",
           }}
           onClose={() => setEditing(null)}
           onSubmit={handleEdit}
