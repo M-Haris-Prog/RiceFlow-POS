@@ -23,6 +23,7 @@ const EMPTY_FORM: VarietyFormValues = {
   reorderLevel: "",
   openingStockKg: "",
   costPerKg: "",
+  currentStockKg: "",
 };
 
 export default function StockPage() {
@@ -113,6 +114,7 @@ export default function StockPage() {
         category: values.category,
         pricePerKg: Number(values.pricePerKg || 0),
         reorderLevel: Number(values.reorderLevel || 0),
+        currentStockKg: Number(values.currentStockKg || 0),
       }),
     });
     const data = await res.json();
@@ -294,6 +296,7 @@ export default function StockPage() {
       {editing && (
         <VarietyModal
           title={`Edit ${editing.name}`}
+          showCurrentStock
           submitLabel="Save changes"
           initialValues={{
             name: editing.name,
@@ -302,6 +305,7 @@ export default function StockPage() {
             reorderLevel: String(editing.reorderLevel),
             openingStockKg: "",
             costPerKg: "",
+            currentStockKg: String(editing.currentStockKg),
           }}
           onClose={() => setEditing(null)}
           onSubmit={handleEdit}

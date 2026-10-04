@@ -9,11 +9,13 @@ export interface VarietyFormValues {
   reorderLevel: string;
   openingStockKg: string;
   costPerKg: string;
+  currentStockKg: string;
 }
 
 interface VarietyModalProps {
   title: string;
   showStockFields?: boolean;
+  showCurrentStock?: boolean;
   initialValues: VarietyFormValues;
   submitLabel: string;
   onClose: () => void;
@@ -23,6 +25,7 @@ interface VarietyModalProps {
 export default function VarietyModal({
   title,
   showStockFields = false,
+  showCurrentStock = false,
   initialValues,
   submitLabel,
   onClose,
@@ -68,6 +71,26 @@ export default function VarietyModal({
               className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
             />
           </div>
+          {showCurrentStock && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[var(--muted)]">
+                Stock in shop (kg)
+              </label>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                required
+                value={values.currentStockKg}
+                onChange={(e) => setValues((v) => ({ ...v, currentStockKg: e.target.value }))}
+                className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+              />
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Use this to correct the count. To add newly bought rice, use the Stock button instead.
+              </p>
+            </div>
+          )}
           {showStockFields && (
             <div className="grid grid-cols-2 gap-3">
               <div>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-const LINKS = [
+const ALL_LINKS = [
   { href: "/", label: "Dashboard", icon: "🏠" },
   { href: "/sales/new", label: "New Bill", icon: "🧾" },
   { href: "/purchases/new", label: "Purchase", icon: "📥" },
@@ -12,9 +12,16 @@ const LINKS = [
   { href: "/reports/profit-loss", label: "P&L", icon: "📊" },
 ];
 
-export default function NavBar({ displayName }: { displayName: string }) {
+export default function NavBar({
+  displayName,
+  role,
+}: {
+  displayName: string;
+  role: "OWNER" | "CASHIER";
+}) {
   const pathname = usePathname();
   const router = useRouter();
+  const LINKS = role === "CASHIER" ? ALL_LINKS.filter((l) => l.href === "/sales/new") : ALL_LINKS;
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });

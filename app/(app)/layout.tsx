@@ -10,7 +10,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
-      <NavBar displayName={user.displayName} />
+      <NavBar displayName={user.displayName} role={user.role} />
       <main className="flex-1 overflow-x-hidden px-4 pb-20 pt-4 md:px-8 md:py-6">
         {children}
       </main>

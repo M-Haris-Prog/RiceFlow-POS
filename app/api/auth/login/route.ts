@@ -26,7 +26,8 @@ export async function POST(request: Request) {
   session.userId = user.id;
   session.username = user.username;
   session.displayName = user.displayName;
+  session.role = user.role === "CASHIER" ? "CASHIER" : "OWNER";
   await session.save();
 
-  return NextResponse.json({ ok: true, displayName: user.displayName });
+  return NextResponse.json({ ok: true, displayName: user.displayName, role: session.role });
 }

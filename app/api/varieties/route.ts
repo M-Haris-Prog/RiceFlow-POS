@@ -5,7 +5,26 @@ import { varietyCreateSchema } from "@/lib/validation";
 import { recordPurchase } from "@/lib/inventory";
 
 export async function GET() {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const varieties = await prisma.variety.findMany({ orderBy: { name: "asc" } });
+
+  // Cashiers get what they need to make a bill, but never the cost price.
+  if (user.role === "CASHIER") {
+    return NextResponse.json({
+      varieties: varieties.map((v) => ({
+        id: v.id,
+        name: v.name,
+        category: v.category,
+        currentStockKg: v.currentStockKg,
+        pricePerKg: v.pricePerKg,
+      })),
+    });
+  }
+
   return NextResponse.json({ varieties });
 }
 
@@ -13,6 +32,9 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (user.role !== "OWNER") {
+    return NextResponse.json({ error: "Not allowed" }, { status: 403 });
   }
 
   const body = await request.json().catch(() => null);

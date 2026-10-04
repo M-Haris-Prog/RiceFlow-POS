@@ -25,7 +25,7 @@ export default function LoginPage() {
         setError(data.error ?? "Login failed");
         return;
       }
-      router.push("/");
+      router.push(data.role === "CASHIER" ? "/sales/new" : "/");
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");

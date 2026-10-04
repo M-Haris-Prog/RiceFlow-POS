@@ -8,6 +8,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (user.role !== "OWNER") {
+    return NextResponse.json({ error: "Not allowed" }, { status: 403 });
+  }
 
   const { id } = await params;
   const body = await request.json().catch(() => null);
@@ -41,6 +44,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       category: parsed.data.category === "" ? null : parsed.data.category,
       pricePerKg: parsed.data.pricePerKg,
       reorderLevel: parsed.data.reorderLevel,
+      currentStockKg: parsed.data.currentStockKg,
     },
   });
 
@@ -51,6 +55,9 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (user.role !== "OWNER") {
+    return NextResponse.json({ error: "Not allowed" }, { status: 403 });
   }
 
   const { id } = await params;

@@ -9,6 +9,7 @@ A shared inventory and point-of-sale system for the rice shop: a bill screen for
 - **New Bill** is a point-of-sale screen: tap a variety card to add it to the bill, adjust kilos/rate right on the receipt slip, apply a discount (amount or percent), pick a payment method (cash/card/wallet/credit), and complete the sale. Stock for every item on the bill is checked and decreased in one database transaction, so stock stays accurate even if both owners enter data at the same time. Each item's profit is computed from the variety's average cost at that moment.
 - **Stock page** lists every variety with its cost, selling price, profit margin, and current stock (with a low-stock indicator), and lets you add, edit, or delete varieties, or jump to recording a purchase for one.
 - Both owners log in with their own username/password and see the same live data.
+- **Two kinds of accounts.** *Owners* can see and do everything: bills, purchases, stock (add/edit/correct/delete), cost prices, profit and loss, and reports. The *cashier* account can only make bills: it sees varieties, selling prices and kilos in stock, but never cost prices, profit, purchases or reports. This is enforced on the server, not just hidden in the menu.
 
 ## Local development
 
@@ -49,6 +50,7 @@ The shop owner will use this from the shop computer's browser; the other owner f
    - `SESSION_SECRET` — any random string, 32+ characters (e.g. generate one with `openssl rand -hex 32`)
    - `OWNER1_USERNAME`, `OWNER1_PASSWORD` — the shop owner's login
    - `OWNER2_USERNAME`, `OWNER2_PASSWORD` — the other owner's login
+   - `CASHIER_USERNAME`, `CASHIER_PASSWORD` — the counter staff login (can only make bills)
 4. Click **Deploy**.
 
 ### 4. Set up the production database (one-time)

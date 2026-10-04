@@ -3,17 +3,23 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-async function upsertOwner(
+async function upsertUser(
+  role: "OWNER" | "CASHIER",
   usernameEnv: string,
   passwordEnv: string,
   displayNameEnv: string,
-  fallbackDisplayName: string
+  fallbackDisplayName: string,
+  optional = false
 ) {
   const username = process.env[usernameEnv];
   const password = process.env[passwordEnv];
   const displayName = process.env[displayNameEnv] ?? fallbackDisplayName;
 
   if (!username || !password) {
+    if (optional) {
+      console.log(`Skipping ${role.toLowerCase()} (${usernameEnv}/${passwordEnv} not set)`);
+      return;
+    }
     throw new Error(
       `Missing ${usernameEnv} or ${passwordEnv} in environment — check your .env file.`
     );
@@ -23,25 +29,23 @@ async function upsertOwner(
 
   await prisma.user.upsert({
     where: { username },
-    update: { passwordHash, displayName },
-    create: { username, passwordHash, displayName },
+    update: { passwordHash, displayName, role },
+    create: { username, passwordHash, displayName, role },
   });
 
-  console.log(`Seeded user: ${username}`);
+  console.log(`Seeded ${role.toLowerCase()}: ${username}`);
 }
 
 async function main() {
-  await upsertOwner(
-    "OWNER1_USERNAME",
-    "OWNER1_PASSWORD",
-    "OWNER1_DISPLAY_NAME",
-    "Owner 1"
-  );
-  await upsertOwner(
-    "OWNER2_USERNAME",
-    "OWNER2_PASSWORD",
-    "OWNER2_DISPLAY_NAME",
-    "Owner 2"
+  await upsertUser("OWNER", "OWNER1_USERNAME", "OWNER1_PASSWORD", "OWNER1_DISPLAY_NAME", "Owner 1");
+  await upsertUser("OWNER", "OWNER2_USERNAME", "OWNER2_PASSWORD", "OWNER2_DISPLAY_NAME", "Owner 2");
+  await upsertUser(
+    "CASHIER",
+    "CASHIER_USERNAME",
+    "CASHIER_PASSWORD",
+    "CASHIER_DISPLAY_NAME",
+    "Cashier",
+    true
   );
 }
 

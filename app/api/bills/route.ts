@@ -36,6 +36,20 @@ export async function POST(request: Request) {
       billDate: parsed.data.billDate,
       createdById: user.id,
     });
+    if (user.role === "CASHIER") {
+      // No cost or profit figures for cashiers.
+      return NextResponse.json({
+        ok: true,
+        bill: {
+          billNumber: bill.billNumber,
+          subtotal: bill.subtotal,
+          discountAmount: bill.discountAmount,
+          total: bill.total,
+          amountReceived: bill.amountReceived,
+          amountDue: bill.amountDue,
+        },
+      });
+    }
     return NextResponse.json({ ok: true, bill });
   } catch (err) {
     if (err instanceof InsufficientStockError) {

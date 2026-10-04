@@ -12,6 +12,7 @@ model User {
   username     String     @unique
   passwordHash String
   displayName  String
+  role         String     @default("OWNER")
   createdAt    DateTime   @default(now())
   purchases    Purchase[]
   bills        Bill[]

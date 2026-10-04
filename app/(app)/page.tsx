@@ -1,8 +1,15 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/session";
 import { getDailySalesReport } from "@/lib/reports";
 import { formatNumber } from "@/lib/format";
 
 export default async function DashboardPage() {
+  const user = await getCurrentUser();
+  if (user?.role !== "OWNER") {
+    redirect("/sales/new");
+  }
+
   const [varieties, today] = await Promise.all([
     prisma.variety.findMany({ orderBy: { name: "asc" } }),
     getDailySalesReport(new Date()),

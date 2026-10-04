@@ -49,6 +49,7 @@ export const varietyUpdateSchema = z.object({
   category: z.string().trim().optional().or(z.literal("")),
   pricePerKg: z.coerce.number().min(0).optional(),
   reorderLevel: z.coerce.number().min(0).optional(),
+  currentStockKg: z.coerce.number().min(0).optional(),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
