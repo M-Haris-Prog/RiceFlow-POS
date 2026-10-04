@@ -30,6 +30,34 @@ textarea {
   opacity: 1;
 }
 
+/* Printing: only the receipt is printed. The receipt fills the paper width, so it suits an 80mm
+   thermal printer (pick that paper size in the print dialog) as well as normal A4. */
+.print-portal {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 3mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  body > *:not(.print-portal) {
+    display: none !important;
+  }
+
+  .print-portal {
+    display: block !important;
+    width: 100%;
+    font-family: ui-monospace, SFMono-Regular, "Courier New", monospace;
+  }
+}
+
 .receipt-paper {
   background: #fafaf7;
   color: #111;

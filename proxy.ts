@@ -3,8 +3,9 @@ import type { NextRequest } from "next/server";
 import { getIronSession, nextProxyCookies } from "iron-session";
 import { sessionOptions, type SessionData } from "@/lib/session";
 
-// The only page a cashier may open. API routes enforce roles themselves too.
+// The only pages a cashier may open. API routes enforce roles themselves too.
 const CASHIER_HOME = "/sales/new";
+const CASHIER_PAGES = [CASHIER_HOME, "/bills"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -37,7 +38,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(isCashier ? CASHIER_HOME : "/", request.url));
   }
 
-  if (isCashier && pathname !== CASHIER_HOME) {
+  if (isCashier && !CASHIER_PAGES.includes(pathname)) {
     return NextResponse.redirect(new URL(CASHIER_HOME, request.url));
   }
 

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 const ALL_LINKS = [
   { href: "/", label: "Dashboard", icon: "🏠" },
   { href: "/sales/new", label: "New Bill", icon: "🧾" },
+  { href: "/bills", label: "Bills", icon: "🗂" },
   { href: "/purchases/new", label: "Purchase", icon: "📥" },
   { href: "/stock", label: "Stock", icon: "📦" },
   { href: "/reports/daily", label: "Daily", icon: "📅" },
@@ -21,7 +22,9 @@ export default function NavBar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const LINKS = role === "CASHIER" ? ALL_LINKS.filter((l) => l.href === "/sales/new") : ALL_LINKS;
+  const CASHIER_PAGES = ["/sales/new", "/bills"];
+  const LINKS =
+    role === "CASHIER" ? ALL_LINKS.filter((l) => CASHIER_PAGES.includes(l.href)) : ALL_LINKS;
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { billSchema } from "@/lib/validation";
 import { recordBill, InsufficientStockError } from "@/lib/inventory";
+import { toReceipt } from "@/lib/receipt";
 
 export async function GET() {
   const lastBill = await prisma.bill.findFirst({ orderBy: { billNumber: "desc" } });
@@ -36,21 +37,12 @@ export async function POST(request: Request) {
       billDate: parsed.data.billDate,
       createdById: user.id,
     });
+    // The receipt has no cost or profit, so it is safe for everyone. Owners also get the full record.
+    const receipt = toReceipt(bill);
     if (user.role === "CASHIER") {
-      // No cost or profit figures for cashiers.
-      return NextResponse.json({
-        ok: true,
-        bill: {
-          billNumber: bill.billNumber,
-          subtotal: bill.subtotal,
-          discountAmount: bill.discountAmount,
-          total: bill.total,
-          amountReceived: bill.amountReceived,
-          amountDue: bill.amountDue,
-        },
-      });
+      return NextResponse.json({ ok: true, bill: { billNumber: bill.billNumber }, receipt });
     }
-    return NextResponse.json({ ok: true, bill });
+    return NextResponse.json({ ok: true, bill, receipt });
   } catch (err) {
     if (err instanceof InsufficientStockError) {
       return NextResponse.json({ error: err.message }, { status: 409 });

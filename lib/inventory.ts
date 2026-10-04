@@ -161,7 +161,10 @@ export async function recordBill(input: RecordBillInput) {
           })),
         },
       },
-      include: { items: { include: { variety: true } } },
+      include: {
+        items: { include: { variety: true } },
+        createdBy: { select: { displayName: true } },
+      },
     });
 
     return bill;

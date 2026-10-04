@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatNumber } from "@/lib/format";
 import { accentColorFor } from "@/lib/colors";
+import type { ReceiptData } from "@/lib/receipt";
+import ReceiptPrint from "@/components/ReceiptPrint";
+
+const AUTO_PRINT_KEY = "rice-shop:auto-print";
 
 interface Variety {
   id: string;
@@ -58,6 +62,17 @@ export default function NewBillPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [lastReceipt, setLastReceipt] = useState<ReceiptData | null>(null);
+  const [autoPrint, setAutoPrint] = useState(false);
+
+  function changeAutoPrint(on: boolean) {
+    setAutoPrint(on);
+    try {
+      localStorage.setItem(AUTO_PRINT_KEY, on ? "1" : "0");
+    } catch {
+      // The setting just won't be remembered.
+    }
+  }
 
   async function loadVarieties() {
     const data = await fetch("/api/varieties").then((r) => r.json());
@@ -75,6 +90,11 @@ export default function NewBillPage() {
     loadNextBillNumber().catch(() => {});
     // today's date is only known client-side to avoid an SSR/client locale hydration mismatch
     setDateLabel(todayLabel());
+    try {
+      setAutoPrint(localStorage.getItem(AUTO_PRINT_KEY) === "1");
+    } catch {
+      // Storage unavailable: keep auto-print off.
+    }
   }, []);
 
   const colorByVariety = useMemo(() => {
@@ -92,6 +112,7 @@ export default function NewBillPage() {
 
   function addToCart(variety: Variety) {
     setSuccess(null);
+    setLastReceipt(null);
     setCart((prev) => {
       const existing = prev.find((l) => l.varietyId === variety.id);
       if (existing) {
@@ -147,6 +168,7 @@ export default function NewBillPage() {
     setAmountReceived("");
     setError(null);
     setSuccess(null);
+    setLastReceipt(null);
   }
 
   const subtotal = cart.reduce((sum, l) => sum + l.qtyKg * l.ratePerKg, 0);
@@ -189,6 +211,11 @@ export default function NewBillPage() {
         return;
       }
       setSuccess(`Bill #${data.bill.billNumber} completed.`);
+      setLastReceipt(data.receipt);
+      if (autoPrint) {
+        // Give the receipt a moment to render before opening the print dialog.
+        setTimeout(() => window.print(), 300);
+      }
       setCart([]);
       setCustomerName("");
       setCustomerPhone("");
@@ -469,6 +496,27 @@ export default function NewBillPage() {
               {success}
             </p>
           )}
+          {lastReceipt && (
+            <>
+              <ReceiptPrint receipt={lastReceipt} />
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="h-11 w-full rounded-lg border border-[var(--accent-strong)] font-medium text-[var(--accent)] hover:bg-[var(--accent-strong)]/10"
+              >
+                🖨 Print receipt for Bill #{lastReceipt.billNumber}
+              </button>
+            </>
+          )}
+          <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
+            <input
+              type="checkbox"
+              checked={autoPrint}
+              onChange={(e) => changeAutoPrint(e.target.checked)}
+              className="h-4 w-4 accent-[var(--accent-strong)]"
+            />
+            Print the receipt automatically after each sale
+          </label>
 
           <button
             onClick={handleSubmit}
