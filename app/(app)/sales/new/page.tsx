@@ -29,6 +29,9 @@ const PAYMENT_OPTIONS: { value: PaymentMethod; label: string }[] = [
   { value: "CREDIT", label: "Credit" },
 ];
 
+// Quick-pick kilo amounts shown under each item on the slip.
+const QUICK_KG = [1, 5, 10, 25, 50];
+
 const SHOP_NAME = process.env.NEXT_PUBLIC_SHOP_NAME || "My Rice Shop";
 const SHOP_ADDRESS = process.env.NEXT_PUBLIC_SHOP_ADDRESS || "Shop address, city";
 
@@ -112,6 +115,21 @@ export default function NewBillPage() {
     const num = Number(value);
     setCart((prev) =>
       prev.map((l, i) => (i === index ? { ...l, [field]: Number.isNaN(num) ? 0 : num } : l))
+    );
+  }
+
+  function setQty(index: number, qty: number) {
+    setCart((prev) => prev.map((l, i) => (i === index ? { ...l, qtyKg: qty } : l)));
+  }
+
+  // The minus button never takes a line below 1 kg (use the box or ✕ for that).
+  function stepQty(index: number, delta: number) {
+    setCart((prev) =>
+      prev.map((l, i) => {
+        if (i !== index) return l;
+        const next = l.qtyKg + delta;
+        return delta < 0 && next < 1 ? l : { ...l, qtyKg: next };
+      })
     );
   }
 
@@ -252,15 +270,32 @@ export default function NewBillPage() {
                     <div className="flex-1">
                       <p className="font-medium">{line.varietyName}</p>
                       <div className="mt-1 flex items-center gap-1 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => stepQty(i, -1)}
+                          aria-label={`One kg less of ${line.varietyName}`}
+                          className="h-7 w-7 rounded border border-neutral-300 bg-white text-base leading-none text-neutral-900 hover:bg-neutral-100"
+                        >
+                          −
+                        </button>
                         <input
                           type="number"
                           inputMode="decimal"
                           step="0.01"
                           min="0"
+                          aria-label={`Kilos of ${line.varietyName}`}
                           value={line.qtyKg}
                           onChange={(e) => updateLine(i, "qtyKg", e.target.value)}
-                          className="h-7 w-16 rounded border border-neutral-300 bg-white px-1 text-neutral-900"
+                          className="h-7 w-14 rounded border border-neutral-300 bg-white px-1 text-center text-neutral-900"
                         />
+                        <button
+                          type="button"
+                          onClick={() => stepQty(i, 1)}
+                          aria-label={`One kg more of ${line.varietyName}`}
+                          className="h-7 w-7 rounded border border-neutral-300 bg-white text-base leading-none text-neutral-900 hover:bg-neutral-100"
+                        >
+                          +
+                        </button>
                         <span>kg ×</span>
                         <input
                           type="number"
@@ -271,6 +306,29 @@ export default function NewBillPage() {
                           onChange={(e) => updateLine(i, "ratePerKg", e.target.value)}
                           className="h-7 w-20 rounded border border-neutral-300 bg-white px-1 text-neutral-900"
                         />
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {QUICK_KG.map((kg) => {
+                          const inStock =
+                            varieties.find((v) => v.id === line.varietyId)?.currentStockKg ?? 0;
+                          const active = line.qtyKg === kg;
+                          return (
+                            <button
+                              key={kg}
+                              type="button"
+                              disabled={kg > inStock}
+                              onClick={() => setQty(i, kg)}
+                              title={kg > inStock ? `Only ${inStock} kg in stock` : undefined}
+                              className={`h-6 rounded border px-2 text-[11px] disabled:cursor-not-allowed disabled:opacity-35 ${
+                                active
+                                  ? "border-neutral-900 bg-neutral-900 text-white"
+                                  : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100"
+                              }`}
+                            >
+                              {kg} kg
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                     <p className="w-16 text-right font-medium">
