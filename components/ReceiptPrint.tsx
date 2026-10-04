@@ -3,9 +3,8 @@
 import { createPortal } from "react-dom";
 import type { ReceiptData } from "@/lib/receipt";
 import { formatNumber, paymentLabel } from "@/lib/format";
+import ShopHeader from "@/components/ShopHeader";
 
-const SHOP_NAME = process.env.NEXT_PUBLIC_SHOP_NAME || "My Rice Shop";
-const SHOP_ADDRESS = process.env.NEXT_PUBLIC_SHOP_ADDRESS || "Shop address, city";
 
 function ReceiptBody({ receipt }: { receipt: ReceiptData }) {
   const date = new Date(receipt.billDate);
@@ -13,10 +12,7 @@ function ReceiptBody({ receipt }: { receipt: ReceiptData }) {
 
   return (
     <div className="text-[13px] leading-snug text-black">
-      <div className="text-center">
-        <p className="text-base font-bold">{SHOP_NAME}</p>
-        <p className="text-xs">{SHOP_ADDRESS}</p>
-      </div>
+      <ShopHeader />
       <div className="my-2 border-t border-dashed border-neutral-500" />
       <div className="flex justify-between text-xs">
         <span>Bill #{receipt.billNumber}</span>

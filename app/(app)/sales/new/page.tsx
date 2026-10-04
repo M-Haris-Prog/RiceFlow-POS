@@ -5,6 +5,7 @@ import { formatNumber } from "@/lib/format";
 import { accentColorFor } from "@/lib/colors";
 import type { ReceiptData } from "@/lib/receipt";
 import ReceiptPrint from "@/components/ReceiptPrint";
+import ShopHeader from "@/components/ShopHeader";
 
 const AUTO_PRINT_KEY = "rice-shop:auto-print";
 
@@ -35,9 +36,6 @@ const PAYMENT_OPTIONS: { value: PaymentMethod; label: string }[] = [
 
 // Quick-pick kilo amounts shown under each item on the slip.
 const QUICK_KG = [1, 5, 10, 25, 50];
-
-const SHOP_NAME = process.env.NEXT_PUBLIC_SHOP_NAME || "My Rice Shop";
-const SHOP_ADDRESS = process.env.NEXT_PUBLIC_SHOP_ADDRESS || "Shop address, city";
 
 function todayLabel() {
   return new Date().toLocaleDateString(undefined, {
@@ -273,10 +271,7 @@ export default function NewBillPage() {
 
       <div className="w-full shrink-0 lg:w-[380px]">
         <div className="receipt-paper mb-3 rounded-sm p-5 pb-7 text-sm">
-          <div className="text-center">
-            <p className="text-base font-bold">{SHOP_NAME}</p>
-            <p className="text-xs text-neutral-600">{SHOP_ADDRESS}</p>
-          </div>
+          <ShopHeader />
           <div className="my-3 border-t border-dashed border-neutral-400" />
           <div className="flex justify-between text-xs">
             <span>Bill #{nextBillNumber ?? "..."}</span>
