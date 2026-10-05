@@ -41,9 +41,11 @@ export async function recordPurchase(input: RecordPurchaseInput) {
       create: { varietyId: variety.id, packaging: input.packaging },
     });
 
-    const newStock = stock.currentStockKg + input.qtyKg;
-    const newAvgCost =
-      (stock.currentStockKg * stock.avgCostPerKg + input.qtyKg * input.ratePerKg) / newStock;
+    // If this stock was deleted earlier, buying it again brings it back starting from zero.
+    const heldKg = stock.archivedAt ? 0 : stock.currentStockKg;
+    const heldCost = stock.archivedAt ? 0 : stock.avgCostPerKg;
+    const newStock = heldKg + input.qtyKg;
+    const newAvgCost = (heldKg * heldCost + input.qtyKg * input.ratePerKg) / newStock;
 
     const purchase = await tx.purchase.create({
       data: {
@@ -60,7 +62,7 @@ export async function recordPurchase(input: RecordPurchaseInput) {
 
     await tx.stockItem.update({
       where: { id: stock.id },
-      data: { currentStockKg: newStock, avgCostPerKg: newAvgCost },
+      data: { currentStockKg: newStock, avgCostPerKg: newAvgCost, archivedAt: null },
     });
 
     return purchase;

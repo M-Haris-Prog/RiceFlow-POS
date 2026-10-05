@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { varietyUpdateSchema } from "@/lib/validation";
-import { packagingLabel } from "@/lib/packaging";
 
 // `id` here is the id of a stock entry (one variety in one packaging), as returned by GET /api/varieties.
 
@@ -26,7 +25,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const stock = await prisma.stockItem.findUnique({ where: { id }, include: { variety: true } });
-  if (!stock) {
+  if (!stock || stock.archivedAt) {
     return NextResponse.json({ error: "Variety not found" }, { status: 404 });
   }
 
@@ -75,15 +74,11 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Variety not found" }, { status: 404 });
   }
 
-  const label = `${stock.variety.name} (${packagingLabel(stock.packaging)})`;
-
-  if (stock.currentStockKg > 0) {
-    return NextResponse.json(
-      { error: `Can't delete ${label} — it still has ${stock.currentStockKg}kg in stock.` },
-      { status: 409 }
-    );
+  if (stock.archivedAt) {
+    return NextResponse.json({ error: "Variety not found" }, { status: 404 });
   }
 
+  // Deleting works even when there is stock; the screen asks the owner to confirm first.
   const where = { varietyId: stock.varietyId, packaging: stock.packaging };
   const [purchaseCount, saleItemCount] = await Promise.all([
     prisma.purchase.count({ where }),
@@ -91,12 +86,16 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   ]);
 
   if (purchaseCount > 0 || saleItemCount > 0) {
-    return NextResponse.json(
-      { error: `Can't delete ${label} — it has purchase/sale history.` },
-      { status: 409 }
-    );
+    // It appears on old bills and in reports, so keep those records intact and just retire the stock:
+    // it vanishes from the stock list, the bill screen and the dashboard, and its kilos are removed.
+    await prisma.stockItem.update({
+      where: { id },
+      data: { archivedAt: new Date(), currentStockKg: 0, avgCostPerKg: 0 },
+    });
+    return NextResponse.json({ ok: true });
   }
 
+  // Never used on any purchase or bill, so it can simply be erased.
   await prisma.stockItem.delete({ where: { id } });
 
   // Remove the variety itself once it has no stock entries left.

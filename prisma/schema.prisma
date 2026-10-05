@@ -39,6 +39,8 @@ model StockItem {
   pricePerKg     Float    @default(0)
   reorderLevel   Float    @default(0)
   createdAt      DateTime @default(now())
+  // Set when the owner deletes this stock. It disappears everywhere except old bills and reports.
+  archivedAt     DateTime?
 
   @@unique([varietyId, packaging])
 }

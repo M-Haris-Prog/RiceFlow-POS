@@ -133,7 +133,18 @@ export default function StockPage() {
 
   async function handleDelete(variety: Variety) {
     setActionError(null);
-    if (!confirm(`Delete ${variety.name} (${packagingLabel(variety.packaging)})? This can't be undone.`)) return;
+    const label = `${variety.name} (${packagingLabel(variety.packaging)})`;
+    const stockNote =
+      variety.currentStockKg > 0
+        ? `It has ${formatNumber(variety.currentStockKg)} kg in stock, which will be removed.`
+        : "It has no stock.";
+    if (
+      !confirm(
+        `Are you sure you want to delete ${label}?\n\n${stockNote}\nBills and reports you have already made are not affected.`
+      )
+    ) {
+      return;
+    }
     const res = await fetch(`/api/varieties/${variety.id}`, { method: "DELETE" });
     const data = await res.json();
     if (!res.ok) {

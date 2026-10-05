@@ -38,6 +38,7 @@ export async function GET() {
   }
 
   const stocks = await prisma.stockItem.findMany({
+    where: { archivedAt: null },
     include: { variety: true },
     orderBy: [{ variety: { name: "asc" } }, { packaging: "asc" }],
   });
@@ -72,7 +73,8 @@ export async function POST(request: Request) {
     where: { name: data.name },
     include: { stocks: true },
   });
-  if (existing?.stocks.some((s) => s.packaging === data.packaging)) {
+  const existingStock = existing?.stocks.find((s) => s.packaging === data.packaging);
+  if (existingStock && !existingStock.archivedAt) {
     return NextResponse.json(
       { error: `${data.name} already exists in ${packagingLabel(data.packaging)}` },
       { status: 409 }
@@ -88,14 +90,28 @@ export async function POST(request: Request) {
         data: { name: data.name, category: data.category || null },
       });
 
-  await prisma.stockItem.create({
-    data: {
-      varietyId: variety.id,
-      packaging: data.packaging,
-      pricePerKg: data.pricePerKg,
-      reorderLevel: data.reorderLevel,
-    },
-  });
+  if (existingStock) {
+    // It was deleted earlier: bring it back as a fresh entry (no old kilos or cost carried over).
+    await prisma.stockItem.update({
+      where: { id: existingStock.id },
+      data: {
+        archivedAt: null,
+        currentStockKg: 0,
+        avgCostPerKg: 0,
+        pricePerKg: data.pricePerKg,
+        reorderLevel: data.reorderLevel,
+      },
+    });
+  } else {
+    await prisma.stockItem.create({
+      data: {
+        varietyId: variety.id,
+        packaging: data.packaging,
+        pricePerKg: data.pricePerKg,
+        reorderLevel: data.reorderLevel,
+      },
+    });
+  }
 
   // Opening stock goes through the normal purchase path so stock, average cost
   // and the purchase history/reports all stay consistent.

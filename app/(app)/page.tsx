@@ -13,6 +13,7 @@ export default async function DashboardPage() {
 
   const [varieties, today] = await Promise.all([
     prisma.stockItem.findMany({
+      where: { archivedAt: null },
       include: { variety: true },
       orderBy: [{ variety: { name: "asc" } }, { packaging: "asc" }],
     }),
