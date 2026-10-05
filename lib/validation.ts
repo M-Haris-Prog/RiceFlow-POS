@@ -1,12 +1,16 @@
 import { z } from "zod";
+import { PACKAGING_VALUES } from "@/lib/packaging";
 
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
 });
 
+const packagingSchema = z.enum(PACKAGING_VALUES, { message: "Choose Bag or Open" });
+
 export const purchaseSchema = z.object({
   varietyName: z.string().trim().min(1, "Variety is required"),
+  packaging: packagingSchema,
   qtyKg: z.coerce.number().positive("Quantity must be greater than 0"),
   ratePerKg: z.coerce.number().positive("Rate must be greater than 0"),
   purchaseDate: z.coerce.date(),
@@ -15,6 +19,7 @@ export const purchaseSchema = z.object({
 
 export const billItemSchema = z.object({
   varietyName: z.string().trim().min(1),
+  packaging: packagingSchema,
   qtyKg: z.coerce.number().positive("Quantity must be greater than 0"),
   ratePerKg: z.coerce.number().min(0, "Rate can't be negative"),
 });
@@ -34,6 +39,7 @@ export const varietyCreateSchema = z
   .object({
     name: z.string().trim().min(1, "Name is required"),
     category: z.string().trim().optional().or(z.literal("")),
+    packaging: packagingSchema,
     pricePerKg: z.coerce.number().min(0).default(0),
     reorderLevel: z.coerce.number().min(0).default(0),
     openingStockKg: z.coerce.number().min(0).default(0),

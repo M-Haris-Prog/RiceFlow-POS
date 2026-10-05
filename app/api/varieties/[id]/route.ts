@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { varietyUpdateSchema } from "@/lib/validation";
+import { packagingLabel } from "@/lib/packaging";
+
+// `id` here is the id of a stock entry (one variety in one packaging), as returned by GET /api/varieties.
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -22,12 +25,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     );
   }
 
-  const variety = await prisma.variety.findUnique({ where: { id } });
-  if (!variety) {
+  const stock = await prisma.stockItem.findUnique({ where: { id }, include: { variety: true } });
+  if (!stock) {
     return NextResponse.json({ error: "Variety not found" }, { status: 404 });
   }
 
-  if (parsed.data.name && parsed.data.name !== variety.name) {
+  if (parsed.data.name && parsed.data.name !== stock.variety.name) {
     const clash = await prisma.variety.findUnique({ where: { name: parsed.data.name } });
     if (clash) {
       return NextResponse.json(
@@ -37,11 +40,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
   }
 
-  const updated = await prisma.variety.update({
-    where: { id },
+  // Name and category belong to the variety (shared by Bag and Open); the rest is this packaging's.
+  await prisma.variety.update({
+    where: { id: stock.varietyId },
     data: {
       name: parsed.data.name,
       category: parsed.data.category === "" ? null : parsed.data.category,
+    },
+  });
+  const updated = await prisma.stockItem.update({
+    where: { id },
+    data: {
       pricePerKg: parsed.data.pricePerKg,
       reorderLevel: parsed.data.reorderLevel,
       currentStockKg: parsed.data.currentStockKg,
@@ -61,30 +70,40 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   }
 
   const { id } = await params;
-  const variety = await prisma.variety.findUnique({ where: { id } });
-  if (!variety) {
+  const stock = await prisma.stockItem.findUnique({ where: { id }, include: { variety: true } });
+  if (!stock) {
     return NextResponse.json({ error: "Variety not found" }, { status: 404 });
   }
 
-  if (variety.currentStockKg > 0) {
+  const label = `${stock.variety.name} (${packagingLabel(stock.packaging)})`;
+
+  if (stock.currentStockKg > 0) {
     return NextResponse.json(
-      { error: `Can't delete ${variety.name} — it still has ${variety.currentStockKg}kg in stock.` },
+      { error: `Can't delete ${label} — it still has ${stock.currentStockKg}kg in stock.` },
       { status: 409 }
     );
   }
 
+  const where = { varietyId: stock.varietyId, packaging: stock.packaging };
   const [purchaseCount, saleItemCount] = await Promise.all([
-    prisma.purchase.count({ where: { varietyId: id } }),
-    prisma.saleItem.count({ where: { varietyId: id } }),
+    prisma.purchase.count({ where }),
+    prisma.saleItem.count({ where }),
   ]);
 
   if (purchaseCount > 0 || saleItemCount > 0) {
     return NextResponse.json(
-      { error: `Can't delete ${variety.name} — it has purchase/sale history.` },
+      { error: `Can't delete ${label} — it has purchase/sale history.` },
       { status: 409 }
     );
   }
 
-  await prisma.variety.delete({ where: { id } });
+  await prisma.stockItem.delete({ where: { id } });
+
+  // Remove the variety itself once it has no stock entries left.
+  const remaining = await prisma.stockItem.count({ where: { varietyId: stock.varietyId } });
+  if (remaining === 0) {
+    await prisma.variety.delete({ where: { id: stock.varietyId } });
+  }
+
   return NextResponse.json({ ok: true });
 }

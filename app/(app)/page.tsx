@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { getDailySalesReport } from "@/lib/reports";
 import { formatNumber } from "@/lib/format";
+import { packagingLabel } from "@/lib/packaging";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -11,7 +12,10 @@ export default async function DashboardPage() {
   }
 
   const [varieties, today] = await Promise.all([
-    prisma.variety.findMany({ orderBy: { name: "asc" } }),
+    prisma.stockItem.findMany({
+      include: { variety: true },
+      orderBy: [{ variety: { name: "asc" } }, { packaging: "asc" }],
+    }),
     getDailySalesReport(new Date()),
   ]);
 
@@ -53,7 +57,12 @@ export default async function DashboardPage() {
               <tbody>
                 {varieties.map((v) => (
                   <tr key={v.id} className="border-t border-[var(--border)]">
-                    <td className="px-4 py-2 font-medium text-[var(--foreground)]">{v.name}</td>
+                    <td className="px-4 py-2 font-medium text-[var(--foreground)]">
+                      {v.variety.name}
+                      <span className="ml-2 rounded bg-[var(--surface-hover)] px-1.5 py-0.5 text-xs font-normal text-[var(--muted)]">
+                        {packagingLabel(v.packaging)}
+                      </span>
+                    </td>
                     <td className="px-4 py-2 text-[var(--foreground)]">
                       {formatNumber(v.currentStockKg)}
                     </td>

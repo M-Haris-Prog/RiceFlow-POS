@@ -3,6 +3,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { todayInputValue } from "@/lib/format";
+import {
+  PACKAGING_OPTIONS,
+  PACKAGING_VALUES,
+  packagingLabel,
+  type Packaging,
+} from "@/lib/packaging";
 
 interface Variety {
   id: string;
@@ -11,9 +17,18 @@ interface Variety {
   avgCostPerKg: number;
 }
 
-export default function PurchaseForm({ initialVariety = "" }: { initialVariety?: string }) {
+export default function PurchaseForm({
+  initialVariety = "",
+  initialPackaging = "",
+}: {
+  initialVariety?: string;
+  initialPackaging?: string;
+}) {
   const router = useRouter();
   const [varieties, setVarieties] = useState<Variety[]>([]);
+  const [packaging, setPackaging] = useState<Packaging | "">(
+    PACKAGING_VALUES.includes(initialPackaging as Packaging) ? (initialPackaging as Packaging) : ""
+  );
   const [varietyName, setVarietyName] = useState(initialVariety);
   const [qtyKg, setQtyKg] = useState("");
   const [ratePerKg, setRatePerKg] = useState("");
@@ -34,6 +49,10 @@ export default function PurchaseForm({ initialVariety = "" }: { initialVariety?:
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    if (!packaging) {
+      setError("Choose Bag or Open first.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/purchases", {
@@ -41,6 +60,7 @@ export default function PurchaseForm({ initialVariety = "" }: { initialVariety?:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           varietyName,
+          packaging,
           qtyKg: Number(qtyKg),
           ratePerKg: Number(ratePerKg),
           purchaseDate,
@@ -52,7 +72,9 @@ export default function PurchaseForm({ initialVariety = "" }: { initialVariety?:
         setError(data.error ?? "Could not record purchase");
         return;
       }
-      setSuccess(`Recorded: ${qtyKg}kg of ${varietyName} purchased.`);
+      setSuccess(
+        `Recorded: ${qtyKg}kg of ${varietyName} (${packagingLabel(packaging)}) added to stock.`
+      );
       setQtyKg("");
       setRatePerKg("");
       setSupplierName("");
@@ -69,6 +91,30 @@ export default function PurchaseForm({ initialVariety = "" }: { initialVariety?:
   return (
     <form onSubmit={handleSubmit} className="flex max-w-md flex-col gap-4">
       <div>
+        <label className="mb-1 block text-sm font-medium text-[var(--muted)]">Packaging</label>
+        <div className="grid grid-cols-2 gap-2">
+          {PACKAGING_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setPackaging(opt.value)}
+              aria-pressed={packaging === opt.value}
+              className={`h-12 rounded-lg border font-medium ${
+                packaging === opt.value
+                  ? "border-[var(--accent-strong)] bg-[var(--accent-strong)] text-black"
+                  : "border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:bg-[var(--surface-hover)]"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          Is this rice in sealed bags, or loose (open)? Bag and Open are kept as separate stock.
+        </p>
+      </div>
+
+      <div>
         <label className="mb-1 block text-sm font-medium text-[var(--muted)]">Variety</label>
         <input
           list="variety-options"
@@ -79,8 +125,8 @@ export default function PurchaseForm({ initialVariety = "" }: { initialVariety?:
           className="h-12 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
         />
         <datalist id="variety-options">
-          {varieties.map((v) => (
-            <option key={v.id} value={v.name} />
+          {Array.from(new Set(varieties.map((v) => v.name))).map((name) => (
+            <option key={name} value={name} />
           ))}
         </datalist>
         <p className="mt-1 text-xs text-[var(--muted)]">

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { packagingLabel, type Packaging } from "@/lib/packaging";
 
 export class InsufficientStockError extends Error {
   varietyName: string;
@@ -16,6 +17,7 @@ export class InsufficientStockError extends Error {
 
 interface RecordPurchaseInput {
   varietyName: string;
+  packaging: Packaging;
   qtyKg: number;
   ratePerKg: number;
   purchaseDate: Date;
@@ -23,22 +25,30 @@ interface RecordPurchaseInput {
   createdById: string;
 }
 
+// Adds stock to one variety in one kind of packaging (Bag or Open), creating either if needed,
+// and recalculates that packaging's average cost.
 export async function recordPurchase(input: RecordPurchaseInput) {
   return prisma.$transaction(async (tx) => {
     const variety = await tx.variety.upsert({
       where: { name: input.varietyName },
       update: {},
-      create: { name: input.varietyName, currentStockKg: 0, avgCostPerKg: 0 },
+      create: { name: input.varietyName },
     });
 
-    const newStock = variety.currentStockKg + input.qtyKg;
+    const stock = await tx.stockItem.upsert({
+      where: { varietyId_packaging: { varietyId: variety.id, packaging: input.packaging } },
+      update: {},
+      create: { varietyId: variety.id, packaging: input.packaging },
+    });
+
+    const newStock = stock.currentStockKg + input.qtyKg;
     const newAvgCost =
-      (variety.currentStockKg * variety.avgCostPerKg + input.qtyKg * input.ratePerKg) /
-      newStock;
+      (stock.currentStockKg * stock.avgCostPerKg + input.qtyKg * input.ratePerKg) / newStock;
 
     const purchase = await tx.purchase.create({
       data: {
         varietyId: variety.id,
+        packaging: input.packaging,
         qtyKg: input.qtyKg,
         ratePerKg: input.ratePerKg,
         totalCost: input.qtyKg * input.ratePerKg,
@@ -48,8 +58,8 @@ export async function recordPurchase(input: RecordPurchaseInput) {
       },
     });
 
-    await tx.variety.update({
-      where: { id: variety.id },
+    await tx.stockItem.update({
+      where: { id: stock.id },
       data: { currentStockKg: newStock, avgCostPerKg: newAvgCost },
     });
 
@@ -62,6 +72,7 @@ export type PaymentMethod = "CASH" | "CARD" | "WALLET" | "CREDIT";
 
 interface BillLineInput {
   varietyName: string;
+  packaging: Packaging;
   qtyKg: number;
   ratePerKg: number;
 }
@@ -86,7 +97,7 @@ export async function recordBill(input: RecordBillInput) {
   return prisma.$transaction(async (tx) => {
     const lineItems: {
       varietyId: string;
-      varietyName: string;
+      packaging: Packaging;
       qtyKg: number;
       ratePerKg: number;
       totalRevenue: number;
@@ -95,21 +106,24 @@ export async function recordBill(input: RecordBillInput) {
     }[] = [];
 
     for (const item of input.items) {
+      const label = `${item.varietyName} (${packagingLabel(item.packaging)})`;
       const variety = await tx.variety.findUnique({ where: { name: item.varietyName } });
-      if (!variety || variety.currentStockKg < item.qtyKg) {
-        throw new InsufficientStockError(
-          item.varietyName,
-          variety?.currentStockKg ?? 0,
-          item.qtyKg
-        );
+      const stock = variety
+        ? await tx.stockItem.findUnique({
+            where: { varietyId_packaging: { varietyId: variety.id, packaging: item.packaging } },
+          })
+        : null;
+
+      if (!variety || !stock || stock.currentStockKg < item.qtyKg) {
+        throw new InsufficientStockError(label, stock?.currentStockKg ?? 0, item.qtyKg);
       }
 
-      const costAtSale = variety.avgCostPerKg * item.qtyKg;
+      const costAtSale = stock.avgCostPerKg * item.qtyKg;
       const totalRevenue = item.qtyKg * item.ratePerKg;
 
       lineItems.push({
         varietyId: variety.id,
-        varietyName: variety.name,
+        packaging: item.packaging,
         qtyKg: item.qtyKg,
         ratePerKg: item.ratePerKg,
         totalRevenue,
@@ -117,9 +131,9 @@ export async function recordBill(input: RecordBillInput) {
         profit: totalRevenue - costAtSale,
       });
 
-      await tx.variety.update({
-        where: { id: variety.id },
-        data: { currentStockKg: variety.currentStockKg - item.qtyKg },
+      await tx.stockItem.update({
+        where: { id: stock.id },
+        data: { currentStockKg: stock.currentStockKg - item.qtyKg },
       });
     }
 
@@ -153,6 +167,7 @@ export async function recordBill(input: RecordBillInput) {
         items: {
           create: lineItems.map((i) => ({
             varietyId: i.varietyId,
+            packaging: i.packaging,
             qtyKg: i.qtyKg,
             ratePerKg: i.ratePerKg,
             totalRevenue: i.totalRevenue,

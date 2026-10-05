@@ -3,6 +3,7 @@
 
 export interface ReceiptItem {
   varietyName: string;
+  packaging: string;
   qtyKg: number;
   ratePerKg: number;
   lineTotal: number;
@@ -35,7 +36,13 @@ interface BillForReceipt {
   amountReceived: number;
   amountDue: number;
   createdBy: { displayName: string };
-  items: { qtyKg: number; ratePerKg: number; totalRevenue: number; variety: { name: string } }[];
+  items: {
+    packaging: string;
+    qtyKg: number;
+    ratePerKg: number;
+    totalRevenue: number;
+    variety: { name: string };
+  }[];
 }
 
 export function toReceipt(bill: BillForReceipt): ReceiptData {
@@ -47,6 +54,7 @@ export function toReceipt(bill: BillForReceipt): ReceiptData {
     cashierName: bill.createdBy.displayName,
     items: bill.items.map((i) => ({
       varietyName: i.variety.name,
+      packaging: i.packaging,
       qtyKg: i.qtyKg,
       ratePerKg: i.ratePerKg,
       lineTotal: i.totalRevenue,

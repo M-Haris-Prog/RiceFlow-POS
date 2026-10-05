@@ -23,6 +23,7 @@ export async function POST(request: Request) {
 
   const purchase = await recordPurchase({
     varietyName: parsed.data.varietyName,
+    packaging: parsed.data.packaging,
     qtyKg: parsed.data.qtyKg,
     ratePerKg: parsed.data.ratePerKg,
     purchaseDate: parsed.data.purchaseDate,

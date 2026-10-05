@@ -4,10 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { formatNumber } from "@/lib/format";
 import { accentColorFor } from "@/lib/colors";
+import { packagingLabel } from "@/lib/packaging";
 import VarietyModal, { type VarietyFormValues } from "@/components/VarietyModal";
 
 interface Variety {
   id: string;
+  varietyId: string;
+  packaging: string;
   name: string;
   category: string | null;
   currentStockKg: number;
@@ -21,6 +24,7 @@ const EMPTY_FORM: VarietyFormValues = {
   category: "",
   pricePerKg: "",
   reorderLevel: "",
+  packaging: "",
   openingStockKg: "",
   costPerKg: "",
   currentStockKg: "",
@@ -49,7 +53,9 @@ export default function StockPage() {
 
   const colorByVariety = useMemo(() => {
     const map = new Map<string, string>();
-    varieties.forEach((v, i) => map.set(v.id, accentColorFor(i)));
+    // Bag and Open of the same variety share a colour.
+    const ids = Array.from(new Set(varieties.map((v) => v.varietyId)));
+    varieties.forEach((v) => map.set(v.id, accentColorFor(ids.indexOf(v.varietyId))));
     return map;
   }, [varieties]);
 
@@ -76,7 +82,7 @@ export default function StockPage() {
   });
 
   const totals = {
-    varietyCount: varieties.length,
+    varietyCount: new Set(varieties.map((v) => v.varietyId)).size,
     totalStockKg: varieties.reduce((s, v) => s + v.currentStockKg, 0),
     stockValueAtCost: varieties.reduce((s, v) => s + v.currentStockKg * v.avgCostPerKg, 0),
     stockValueAtPrice: varieties.reduce((s, v) => s + v.currentStockKg * v.pricePerKg, 0),
@@ -93,6 +99,7 @@ export default function StockPage() {
         category: values.category,
         pricePerKg: Number(values.pricePerKg || 0),
         reorderLevel: Number(values.reorderLevel || 0),
+        packaging: values.packaging,
         openingStockKg: Number(values.openingStockKg || 0),
         costPerKg: Number(values.costPerKg || 0),
       }),
@@ -126,7 +133,7 @@ export default function StockPage() {
 
   async function handleDelete(variety: Variety) {
     setActionError(null);
-    if (!confirm(`Delete ${variety.name}? This can't be undone.`)) return;
+    if (!confirm(`Delete ${variety.name} (${packagingLabel(variety.packaging)})? This can't be undone.`)) return;
     const res = await fetch(`/api/varieties/${variety.id}`, { method: "DELETE" });
     const data = await res.json();
     if (!res.ok) {
@@ -222,7 +229,12 @@ export default function StockPage() {
                             style={{ backgroundColor: color }}
                           />
                           <div>
-                            <p className="font-medium text-[var(--foreground)]">{v.name}</p>
+                            <p className="font-medium text-[var(--foreground)]">
+                              {v.name}
+                              <span className="ml-2 rounded bg-[var(--surface-hover)] px-1.5 py-0.5 text-xs font-normal text-[var(--muted)]">
+                                {packagingLabel(v.packaging)}
+                              </span>
+                            </p>
                             {v.category && (
                               <p className="text-xs text-[var(--muted)]">{v.category}</p>
                             )}
@@ -254,7 +266,7 @@ export default function StockPage() {
                       <td className="px-4 py-2">
                         <div className="flex justify-end gap-2 whitespace-nowrap">
                           <Link
-                            href={`/purchases/new?variety=${encodeURIComponent(v.name)}`}
+                            href={`/purchases/new?variety=${encodeURIComponent(v.name)}&packaging=${v.packaging}`}
                             className="rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--surface-hover)]"
                           >
                             Stock
@@ -295,7 +307,7 @@ export default function StockPage() {
 
       {editing && (
         <VarietyModal
-          title={`Edit ${editing.name}`}
+          title={`Edit ${editing.name} (${packagingLabel(editing.packaging)})`}
           showCurrentStock
           submitLabel="Save changes"
           initialValues={{
@@ -303,6 +315,7 @@ export default function StockPage() {
             category: editing.category ?? "",
             pricePerKg: String(editing.pricePerKg),
             reorderLevel: String(editing.reorderLevel),
+            packaging: editing.packaging,
             openingStockKg: "",
             costPerKg: "",
             currentStockKg: String(editing.currentStockKg),

@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/db";
 import { startOfDay, endOfDay } from "date-fns";
+import { packagingLabel } from "@/lib/packaging";
+
+const lineLabel = (name: string, packaging: string) => `${name} (${packagingLabel(packaging)})`;
 
 export interface DailyReportRow {
   varietyName: string;
@@ -20,8 +23,9 @@ export async function getDailySalesReport(date: Date) {
 
   const byVariety = new Map<string, DailyReportRow>();
   for (const item of items) {
-    const existing = byVariety.get(item.varietyId) ?? {
-      varietyName: item.variety.name,
+    const key = `${item.varietyId}:${item.packaging}`;
+    const existing = byVariety.get(key) ?? {
+      varietyName: lineLabel(item.variety.name, item.packaging),
       qtyKg: 0,
       revenue: 0,
       profit: 0,
@@ -29,7 +33,7 @@ export async function getDailySalesReport(date: Date) {
     existing.qtyKg += item.qtyKg;
     existing.revenue += item.totalRevenue;
     existing.profit += item.profit;
-    byVariety.set(item.varietyId, existing);
+    byVariety.set(key, existing);
   }
 
   const rows = Array.from(byVariety.values()).sort((a, b) =>
@@ -92,7 +96,7 @@ export async function getProfitLossReport(from: Date, to: Date) {
   };
 
   for (const item of saleItems) {
-    const row = getRow(item.varietyId, item.variety.name);
+    const row = getRow(`${item.varietyId}:${item.packaging}`, lineLabel(item.variety.name, item.packaging));
     row.qtySold += item.qtyKg;
     row.revenue += item.totalRevenue;
     row.cogs += item.costAtSale;
@@ -100,7 +104,10 @@ export async function getProfitLossReport(from: Date, to: Date) {
   }
 
   for (const purchase of purchases) {
-    const row = getRow(purchase.varietyId, purchase.variety.name);
+    const row = getRow(
+      `${purchase.varietyId}:${purchase.packaging}`,
+      lineLabel(purchase.variety.name, purchase.packaging)
+    );
     row.qtyPurchased += purchase.qtyKg;
     row.purchaseCost += purchase.totalCost;
   }

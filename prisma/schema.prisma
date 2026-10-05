@@ -19,22 +19,35 @@ model User {
 }
 
 model Variety {
-  id             String     @id @default(cuid())
-  name           String     @unique
-  category       String?
-  currentStockKg Float      @default(0)
-  avgCostPerKg   Float      @default(0)
-  pricePerKg     Float      @default(0)
-  reorderLevel   Float      @default(0)
-  createdAt      DateTime   @default(now())
-  purchases      Purchase[]
-  saleItems      SaleItem[]
+  id        String      @id @default(cuid())
+  name      String      @unique
+  category  String?
+  createdAt DateTime    @default(now())
+  stocks    StockItem[]
+  purchases Purchase[]
+  saleItems SaleItem[]
+}
+
+// Stock of one variety in one kind of packaging ("BAG" or "OPEN"), with its own cost and price.
+model StockItem {
+  id             String   @id @default(cuid())
+  varietyId      String
+  variety        Variety  @relation(fields: [varietyId], references: [id])
+  packaging      String
+  currentStockKg Float    @default(0)
+  avgCostPerKg   Float    @default(0)
+  pricePerKg     Float    @default(0)
+  reorderLevel   Float    @default(0)
+  createdAt      DateTime @default(now())
+
+  @@unique([varietyId, packaging])
 }
 
 model Purchase {
   id           String   @id @default(cuid())
   varietyId    String
   variety      Variety  @relation(fields: [varietyId], references: [id])
+  packaging    String   @default("OPEN")
   qtyKg        Float
   ratePerKg    Float
   totalCost    Float
@@ -76,6 +89,7 @@ model SaleItem {
   bill         Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
   varietyId    String
   variety      Variety  @relation(fields: [varietyId], references: [id])
+  packaging    String   @default("OPEN")
   qtyKg        Float
   ratePerKg    Float
   totalRevenue Float

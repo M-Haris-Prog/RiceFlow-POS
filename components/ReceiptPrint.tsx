@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import type { ReceiptData } from "@/lib/receipt";
 import { formatNumber, paymentLabel } from "@/lib/format";
 import ShopHeader from "@/components/ShopHeader";
+import { packagingLabel } from "@/lib/packaging";
 
 
 function ReceiptBody({ receipt }: { receipt: ReceiptData }) {
@@ -32,7 +33,9 @@ function ReceiptBody({ receipt }: { receipt: ReceiptData }) {
         {receipt.items.map((item, i) => (
           <div key={i}>
             <div className="flex justify-between gap-2 font-medium">
-              <span>{item.varietyName}</span>
+              <span>
+                {item.varietyName} ({packagingLabel(item.packaging)})
+              </span>
               <span>{formatNumber(item.lineTotal)}</span>
             </div>
             <p className="text-xs">

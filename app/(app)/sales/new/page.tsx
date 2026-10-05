@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatNumber } from "@/lib/format";
+import { PACKAGING_OPTIONS, packagingLabel, type Packaging } from "@/lib/packaging";
 import { accentColorFor } from "@/lib/colors";
 import type { ReceiptData } from "@/lib/receipt";
 import ReceiptPrint from "@/components/ReceiptPrint";
@@ -9,8 +10,11 @@ import ShopHeader from "@/components/ShopHeader";
 
 const AUTO_PRINT_KEY = "rice-shop:auto-print";
 
+// One variety in one packaging (Bag or Open). `id` is the id of that stock entry.
 interface Variety {
   id: string;
+  varietyId: string;
+  packaging: Packaging;
   name: string;
   category: string | null;
   currentStockKg: number;
@@ -18,8 +22,9 @@ interface Variety {
 }
 
 interface CartLine {
-  varietyId: string;
+  stockId: string;
   varietyName: string;
+  packaging: Packaging;
   qtyKg: number;
   ratePerKg: number;
 }
@@ -47,6 +52,7 @@ function todayLabel() {
 
 export default function NewBillPage() {
   const [varieties, setVarieties] = useState<Variety[]>([]);
+  const [packaging, setPackaging] = useState<Packaging | null>(null);
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [customerName, setCustomerName] = useState("");
@@ -97,32 +103,35 @@ export default function NewBillPage() {
 
   const colorByVariety = useMemo(() => {
     const map = new Map<string, string>();
-    varieties.forEach((v, i) => map.set(v.id, accentColorFor(i)));
+    const ids = Array.from(new Set(varieties.map((v) => v.varietyId)));
+    varieties.forEach((v) => map.set(v.id, accentColorFor(ids.indexOf(v.varietyId))));
     return map;
   }, [varieties]);
 
   const filteredVarieties = varieties.filter(
     (v) =>
-      search.trim() === "" ||
+      v.packaging === packaging &&
+      (search.trim() === "" ||
       v.name.toLowerCase().includes(search.trim().toLowerCase()) ||
-      (v.category ?? "").toLowerCase().includes(search.trim().toLowerCase())
+      (v.category ?? "").toLowerCase().includes(search.trim().toLowerCase()))
   );
 
   function addToCart(variety: Variety) {
     setSuccess(null);
     setLastReceipt(null);
     setCart((prev) => {
-      const existing = prev.find((l) => l.varietyId === variety.id);
+      const existing = prev.find((l) => l.stockId === variety.id);
       if (existing) {
         return prev.map((l) =>
-          l.varietyId === variety.id ? { ...l, qtyKg: l.qtyKg + 1 } : l
+          l.stockId === variety.id ? { ...l, qtyKg: l.qtyKg + 1 } : l
         );
       }
       return [
         ...prev,
         {
-          varietyId: variety.id,
+          stockId: variety.id,
           varietyName: variety.name,
+          packaging: variety.packaging,
           qtyKg: 1,
           ratePerKg: variety.pricePerKg,
         },
@@ -191,6 +200,7 @@ export default function NewBillPage() {
         body: JSON.stringify({
           items: cart.map((l) => ({
             varietyName: l.varietyName,
+            packaging: l.packaging,
             qtyKg: l.qtyKg,
             ratePerKg: l.ratePerKg,
           })),
@@ -234,9 +244,36 @@ export default function NewBillPage() {
       <div className="flex-1">
         <h1 className="text-xl font-semibold text-[var(--foreground)]">New bill</h1>
         <p className="mb-4 text-sm text-[var(--muted)]">
-          Tap a variety to add it. Change kilos or rate on the slip.
+          Choose Bag or Open, then tap a variety to add it. Change kilos or rate on the slip.
         </p>
 
+        <div className="mb-4">
+          <p className="mb-1 text-sm font-medium text-[var(--muted)]">Packaging</p>
+          <div className="grid grid-cols-2 gap-3">
+            {PACKAGING_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                aria-pressed={packaging === opt.value}
+                onClick={() => setPackaging(opt.value)}
+                className={`h-14 rounded-xl border text-lg font-semibold transition-colors ${
+                  packaging === opt.value
+                    ? "border-[var(--accent-strong)] bg-[var(--accent-strong)] text-black"
+                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:bg-[var(--surface-hover)]"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {packaging === null ? (
+          <p className="rounded-xl border border-dashed border-[var(--border)] px-4 py-8 text-center text-sm text-[var(--muted)]">
+            Choose Bag or Open above to see the varieties.
+          </p>
+        ) : (
+        <>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -267,6 +304,13 @@ export default function NewBillPage() {
             );
           })}
         </div>
+        {filteredVarieties.length === 0 && (
+          <p className="mt-3 text-sm text-[var(--muted)]">
+            No {packagingLabel(packaging).toLowerCase()} rice found.
+          </p>
+        )}
+        </>
+        )}
       </div>
 
       <div className="w-full shrink-0 lg:w-[380px]">
@@ -288,9 +332,14 @@ export default function NewBillPage() {
             ) : (
               <div className="flex flex-col gap-2">
                 {cart.map((line, i) => (
-                  <div key={line.varietyId} className="flex items-center gap-2">
+                  <div key={line.stockId} className="flex items-center gap-2">
                     <div className="flex-1">
-                      <p className="font-medium">{line.varietyName}</p>
+                      <p className="font-medium">
+                        {line.varietyName}
+                        <span className="ml-1.5 rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] font-normal text-neutral-700">
+                          {packagingLabel(line.packaging)}
+                        </span>
+                      </p>
                       <div className="mt-1 flex items-center gap-1 text-xs">
                         <button
                           type="button"
@@ -332,7 +381,7 @@ export default function NewBillPage() {
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {QUICK_KG.map((kg) => {
                           const inStock =
-                            varieties.find((v) => v.id === line.varietyId)?.currentStockKg ?? 0;
+                            varieties.find((v) => v.id === line.stockId)?.currentStockKg ?? 0;
                           const active = line.qtyKg === kg;
                           return (
                             <button

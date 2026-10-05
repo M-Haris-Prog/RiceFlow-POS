@@ -3,6 +3,33 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { varietyCreateSchema } from "@/lib/validation";
 import { recordPurchase } from "@/lib/inventory";
+import { packagingLabel } from "@/lib/packaging";
+
+// One entry per variety AND packaging (Bag / Open). `id` is the id of that stock entry.
+function toStockEntry(
+  s: {
+    id: string;
+    varietyId: string;
+    packaging: string;
+    currentStockKg: number;
+    avgCostPerKg: number;
+    pricePerKg: number;
+    reorderLevel: number;
+    variety: { name: string; category: string | null };
+  },
+  includeCost: boolean
+) {
+  return {
+    id: s.id,
+    varietyId: s.varietyId,
+    name: s.variety.name,
+    category: s.variety.category,
+    packaging: s.packaging,
+    currentStockKg: s.currentStockKg,
+    pricePerKg: s.pricePerKg,
+    ...(includeCost ? { avgCostPerKg: s.avgCostPerKg, reorderLevel: s.reorderLevel } : {}),
+  };
+}
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -10,24 +37,18 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const varieties = await prisma.variety.findMany({ orderBy: { name: "asc" } });
+  const stocks = await prisma.stockItem.findMany({
+    include: { variety: true },
+    orderBy: [{ variety: { name: "asc" } }, { packaging: "asc" }],
+  });
 
   // Cashiers get what they need to make a bill, but never the cost price.
-  if (user.role === "CASHIER") {
-    return NextResponse.json({
-      varieties: varieties.map((v) => ({
-        id: v.id,
-        name: v.name,
-        category: v.category,
-        currentStockKg: v.currentStockKg,
-        pricePerKg: v.pricePerKg,
-      })),
-    });
-  }
-
-  return NextResponse.json({ varieties });
+  return NextResponse.json({
+    varieties: stocks.map((s) => toStockEntry(s, user.role === "OWNER")),
+  });
 }
 
+// Adds a variety, or adds a new packaging (Bag/Open) to a variety that already exists.
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) {
@@ -45,34 +66,54 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+  const data = parsed.data;
 
-  const existing = await prisma.variety.findUnique({ where: { name: parsed.data.name } });
-  if (existing) {
-    return NextResponse.json({ error: "A variety with this name already exists" }, { status: 409 });
+  const existing = await prisma.variety.findUnique({
+    where: { name: data.name },
+    include: { stocks: true },
+  });
+  if (existing?.stocks.some((s) => s.packaging === data.packaging)) {
+    return NextResponse.json(
+      { error: `${data.name} already exists in ${packagingLabel(data.packaging)}` },
+      { status: 409 }
+    );
   }
 
-  await prisma.variety.create({
+  const variety = existing
+    ? await prisma.variety.update({
+        where: { id: existing.id },
+        data: data.category ? { category: data.category } : {},
+      })
+    : await prisma.variety.create({
+        data: { name: data.name, category: data.category || null },
+      });
+
+  await prisma.stockItem.create({
     data: {
-      name: parsed.data.name,
-      category: parsed.data.category || null,
-      pricePerKg: parsed.data.pricePerKg,
-      reorderLevel: parsed.data.reorderLevel,
+      varietyId: variety.id,
+      packaging: data.packaging,
+      pricePerKg: data.pricePerKg,
+      reorderLevel: data.reorderLevel,
     },
   });
 
   // Opening stock goes through the normal purchase path so stock, average cost
   // and the purchase history/reports all stay consistent.
-  if (parsed.data.openingStockKg > 0) {
+  if (data.openingStockKg > 0) {
     await recordPurchase({
-      varietyName: parsed.data.name,
-      qtyKg: parsed.data.openingStockKg,
-      ratePerKg: parsed.data.costPerKg,
+      varietyName: data.name,
+      packaging: data.packaging,
+      qtyKg: data.openingStockKg,
+      ratePerKg: data.costPerKg,
       purchaseDate: new Date(),
       supplierName: "Opening stock",
       createdById: user.id,
     });
   }
 
-  const variety = await prisma.variety.findUnique({ where: { name: parsed.data.name } });
-  return NextResponse.json({ ok: true, variety });
+  const stock = await prisma.stockItem.findUnique({
+    where: { varietyId_packaging: { varietyId: variety.id, packaging: data.packaging } },
+    include: { variety: true },
+  });
+  return NextResponse.json({ ok: true, variety: stock ? toStockEntry(stock, true) : null });
 }

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { PACKAGING_OPTIONS } from "@/lib/packaging";
 
 export interface VarietyFormValues {
   name: string;
   category: string;
   pricePerKg: string;
   reorderLevel: string;
+  packaging: string;
   openingStockKg: string;
   costPerKg: string;
   currentStockKg: string;
@@ -38,6 +40,10 @@ export default function VarietyModal({
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (showStockFields && !values.packaging) {
+      setError("Choose Bag or Open first.");
+      return;
+    }
     setSaving(true);
     const result = await onSubmit(values);
     setSaving(false);
@@ -51,6 +57,31 @@ export default function VarietyModal({
       <div className="w-full max-w-sm rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <h2 className="mb-4 text-lg font-semibold text-[var(--foreground)]">{title}</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {showStockFields && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[var(--muted)]">Packaging</label>
+              <div className="grid grid-cols-2 gap-2">
+                {PACKAGING_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    aria-pressed={values.packaging === opt.value}
+                    onClick={() => setValues((v) => ({ ...v, packaging: opt.value }))}
+                    className={`h-11 rounded-lg border font-medium ${
+                      values.packaging === opt.value
+                        ? "border-[var(--accent-strong)] bg-[var(--accent-strong)] text-black"
+                        : "border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--surface-hover)]"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Adding a variety that already exists in the other packaging adds this one next to it.
+              </p>
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-sm font-medium text-[var(--muted)]">Name</label>
             <input
