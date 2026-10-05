@@ -35,6 +35,18 @@ export const billSchema = z.object({
   billDate: z.coerce.date(),
 });
 
+export const returnSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        saleItemId: z.string().min(1),
+        qtyKg: z.coerce.number().min(0),
+      })
+    )
+    .min(1, "Choose what is being returned"),
+  note: z.string().trim().max(200).optional().or(z.literal("")),
+});
+
 export const varietyCreateSchema = z
   .object({
     name: z.string().trim().min(1, "Name is required"),
@@ -60,6 +72,7 @@ export const varietyUpdateSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type PurchaseInput = z.infer<typeof purchaseSchema>;
+export type ReturnInput = z.infer<typeof returnSchema>;
 export type BillInput = z.infer<typeof billSchema>;
 export type VarietyCreateInput = z.infer<typeof varietyCreateSchema>;
 export type VarietyUpdateInput = z.infer<typeof varietyUpdateSchema>;

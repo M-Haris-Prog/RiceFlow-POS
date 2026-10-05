@@ -39,6 +39,7 @@ export async function GET(request: Request) {
     include: {
       createdBy: { select: { displayName: true } },
       items: { select: { profit: true } },
+      returns: { include: { items: true } },
     },
   });
 
@@ -50,29 +51,39 @@ export async function GET(request: Request) {
         (b.customerName ?? "").toLowerCase().includes(q) ||
         (b.customerPhone ?? "").includes(q)
     )
-    .map((b) => ({
-      id: b.id,
-      billNumber: b.billNumber,
-      billDate: b.billDate.toISOString(),
-      customerName: b.customerName,
-      cashierName: b.createdBy.displayName,
-      itemCount: b.items.length,
-      total: b.total,
-      paymentMethod: b.paymentMethod,
-      amountDue: b.amountDue,
-      // Profit after the bill discount. Owners only.
-      profit:
-        user.role === "OWNER"
-          ? b.items.reduce((sum, i) => sum + i.profit, 0) - b.discountAmount
-          : undefined,
-    }));
+    .map((b) => {
+      const retItems = b.returns.flatMap((r) => r.items);
+      const refunded = b.returns.reduce((s, r) => s + r.refundAmount, 0);
+      return {
+        id: b.id,
+        billNumber: b.billNumber,
+        billDate: b.billDate.toISOString(),
+        customerName: b.customerName,
+        cashierName: b.createdBy.displayName,
+        itemCount: b.items.length,
+        total: b.total,
+        refunded,
+        // What the sale is worth after any refunds.
+        netTotal: b.total - refunded,
+        paymentMethod: b.paymentMethod,
+        amountDue: Math.max(0, b.amountDue - b.returns.reduce((s, r) => s + r.dueReduced, 0)),
+        // Profit after the bill discount and any refunds. Owners only.
+        profit:
+          user.role === "OWNER"
+            ? b.items.reduce((s, i) => s + i.profit, 0) -
+              retItems.reduce((s, i) => s + i.profitReversed, 0) -
+              (b.discountAmount - retItems.reduce((s, i) => s + i.discountReversed, 0))
+            : undefined,
+      };
+    });
 
   return NextResponse.json({
     role: user.role,
     truncated: bills.length === MAX_BILLS,
     totals: {
       count: rows.length,
-      sales: rows.reduce((s, r) => s + r.total, 0),
+      sales: rows.reduce((s, r) => s + r.netTotal, 0),
+      refunded: rows.reduce((s, r) => s + r.refunded, 0),
       due: rows.reduce((s, r) => s + r.amountDue, 0),
       profit: user.role === "OWNER" ? rows.reduce((s, r) => s + (r.profit ?? 0), 0) : undefined,
     },

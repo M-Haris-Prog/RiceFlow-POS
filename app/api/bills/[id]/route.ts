@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { endOfDay, startOfDay } from "date-fns";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
-import { toReceipt } from "@/lib/receipt";
+import { toReceipt, toReturnSlip, type ReturnableItem } from "@/lib/receipt";
+import { perKgValue } from "@/lib/returns";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -16,6 +17,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     include: {
       items: { include: { variety: true } },
       createdBy: { select: { displayName: true } },
+      returns: {
+        orderBy: { returnDate: "asc" },
+        include: {
+          createdBy: { select: { displayName: true } },
+          bill: { select: { billNumber: true, customerName: true } },
+          items: { include: { saleItem: { include: { variety: true } } } },
+        },
+      },
     },
   });
   if (!bill) {
@@ -27,13 +36,38 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!today) {
       return NextResponse.json({ error: "Not allowed" }, { status: 403 });
     }
-    return NextResponse.json({ receipt: toReceipt(bill) });
   }
 
-  const cost = bill.items.reduce((sum, i) => sum + i.costAtSale, 0);
-  const itemsProfit = bill.items.reduce((sum, i) => sum + i.profit, 0);
-  return NextResponse.json({
+  const returnable: ReturnableItem[] = bill.items.map((i) => ({
+    saleItemId: i.id,
+    varietyName: i.variety.name,
+    packaging: i.packaging,
+    qtyKg: i.qtyKg,
+    returnedKg: i.returnedKg,
+    refundPerKg: perKgValue(i, bill).refundPerKg,
+  }));
+
+  const refunded = bill.returns.reduce((sum, r) => sum + r.refundAmount, 0);
+  const dueNow = Math.max(0, bill.amountDue - bill.returns.reduce((sum, r) => sum + r.dueReduced, 0));
+
+  const common = {
     receipt: toReceipt(bill),
-    owner: { cost, profit: itemsProfit - bill.discountAmount },
-  });
+    returnable,
+    returns: bill.returns.map(toReturnSlip),
+    refunded,
+    dueNow,
+  };
+
+  if (user.role === "CASHIER") {
+    return NextResponse.json(common);
+  }
+
+  // Owner figures, after any refunds: cost of the rice actually kept by customers, and profit after discount.
+  const ret = bill.returns.flatMap((r) => r.items);
+  const cost = bill.items.reduce((s, i) => s + i.costAtSale, 0) - ret.reduce((s, i) => s + i.costReversed, 0);
+  const profit =
+    bill.items.reduce((s, i) => s + i.profit, 0) -
+    ret.reduce((s, i) => s + i.profitReversed, 0) -
+    (bill.discountAmount - ret.reduce((s, i) => s + i.discountReversed, 0));
+  return NextResponse.json({ ...common, owner: { cost, profit } });
 }

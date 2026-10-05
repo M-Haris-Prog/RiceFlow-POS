@@ -11,29 +11,48 @@ export interface DailyReportRow {
   profit: number;
 }
 
+// Sales per variety and packaging for one day, minus anything refunded that day.
 export async function getDailySalesReport(date: Date) {
   const from = startOfDay(date);
   const to = endOfDay(date);
 
-  const items = await prisma.saleItem.findMany({
-    where: { bill: { billDate: { gte: from, lte: to } } },
-    include: { variety: true },
-    orderBy: { bill: { billDate: "asc" } },
-  });
+  const [items, returned] = await Promise.all([
+    prisma.saleItem.findMany({
+      where: { bill: { billDate: { gte: from, lte: to } } },
+      include: { variety: true },
+      orderBy: { bill: { billDate: "asc" } },
+    }),
+    prisma.returnItem.findMany({
+      where: { return: { returnDate: { gte: from, lte: to } } },
+      include: { saleItem: { include: { variety: true } } },
+    }),
+  ]);
 
   const byVariety = new Map<string, DailyReportRow>();
+  const getRow = (key: string, label: string): DailyReportRow => {
+    const existing = byVariety.get(key);
+    if (existing) return existing;
+    const fresh: DailyReportRow = { varietyName: label, qtyKg: 0, revenue: 0, profit: 0 };
+    byVariety.set(key, fresh);
+    return fresh;
+  };
+
   for (const item of items) {
-    const key = `${item.varietyId}:${item.packaging}`;
-    const existing = byVariety.get(key) ?? {
-      varietyName: lineLabel(item.variety.name, item.packaging),
-      qtyKg: 0,
-      revenue: 0,
-      profit: 0,
-    };
-    existing.qtyKg += item.qtyKg;
-    existing.revenue += item.totalRevenue;
-    existing.profit += item.profit;
-    byVariety.set(key, existing);
+    const row = getRow(
+      `${item.varietyId}:${item.packaging}`,
+      lineLabel(item.variety.name, item.packaging)
+    );
+    row.qtyKg += item.qtyKg;
+    row.revenue += item.totalRevenue;
+    row.profit += item.profit;
+  }
+
+  for (const r of returned) {
+    const s = r.saleItem;
+    const row = getRow(`${s.varietyId}:${s.packaging}`, lineLabel(s.variety.name, s.packaging));
+    row.qtyKg -= r.qtyKg;
+    row.revenue -= r.revenueReversed;
+    row.profit -= r.profitReversed;
   }
 
   const rows = Array.from(byVariety.values()).sort((a, b) =>
@@ -49,8 +68,9 @@ export async function getDailySalesReport(date: Date) {
   );
 
   const billCount = await prisma.bill.count({ where: { billDate: { gte: from, lte: to } } });
+  const refundTotal = returned.reduce((sum, r) => sum + r.refundAmount, 0);
 
-  return { date: from, rows, totals, billCount };
+  return { date: from, rows, totals, billCount, refundTotal };
 }
 
 export interface ProfitLossRow {
@@ -67,7 +87,7 @@ export async function getProfitLossReport(from: Date, to: Date) {
   const rangeFrom = startOfDay(from);
   const rangeTo = endOfDay(to);
 
-  const [saleItems, purchases] = await Promise.all([
+  const [saleItems, purchases, returned] = await Promise.all([
     prisma.saleItem.findMany({
       where: { bill: { billDate: { gte: rangeFrom, lte: rangeTo } } },
       include: { variety: true },
@@ -75,6 +95,10 @@ export async function getProfitLossReport(from: Date, to: Date) {
     prisma.purchase.findMany({
       where: { purchaseDate: { gte: rangeFrom, lte: rangeTo } },
       include: { variety: true },
+    }),
+    prisma.returnItem.findMany({
+      where: { return: { returnDate: { gte: rangeFrom, lte: rangeTo } } },
+      include: { saleItem: { include: { variety: true } } },
     }),
   ]);
 
@@ -96,11 +120,24 @@ export async function getProfitLossReport(from: Date, to: Date) {
   };
 
   for (const item of saleItems) {
-    const row = getRow(`${item.varietyId}:${item.packaging}`, lineLabel(item.variety.name, item.packaging));
+    const row = getRow(
+      `${item.varietyId}:${item.packaging}`,
+      lineLabel(item.variety.name, item.packaging)
+    );
     row.qtySold += item.qtyKg;
     row.revenue += item.totalRevenue;
     row.cogs += item.costAtSale;
     row.profit += item.profit;
+  }
+
+  // Rice taken back in the period comes off the sales, cost and profit.
+  for (const r of returned) {
+    const s = r.saleItem;
+    const row = getRow(`${s.varietyId}:${s.packaging}`, lineLabel(s.variety.name, s.packaging));
+    row.qtySold -= r.qtyKg;
+    row.revenue -= r.revenueReversed;
+    row.cogs -= r.costReversed;
+    row.profit -= r.profitReversed;
   }
 
   for (const purchase of purchases) {

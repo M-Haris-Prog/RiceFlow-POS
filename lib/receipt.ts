@@ -24,6 +24,69 @@ export interface ReceiptData {
   amountDue: number;
 }
 
+// One line of a bill that can still be returned (cashier-safe: no cost or profit).
+export interface ReturnableItem {
+  saleItemId: string;
+  varietyName: string;
+  packaging: string;
+  qtyKg: number;
+  returnedKg: number;
+  // What the customer actually paid per kilo after the bill's discount.
+  refundPerKg: number;
+}
+
+// The slip for a refund: what came back and what was given back.
+export interface ReturnSlipData {
+  returnId: string;
+  billNumber: number;
+  returnDate: string;
+  customerName: string | null;
+  cashierName: string;
+  items: { varietyName: string; packaging: string; qtyKg: number; refundAmount: number }[];
+  refundAmount: number;
+  // Part of the refund that only reduced what the customer still owed.
+  dueReduced: number;
+  // Cash handed back.
+  cashRefunded: number;
+  note: string | null;
+}
+
+interface ReturnForSlip {
+  id: string;
+  returnDate: Date;
+  refundAmount: number;
+  dueReduced: number;
+  cashRefunded: number;
+  note: string | null;
+  createdBy: { displayName: string };
+  bill: { billNumber: number; customerName: string | null };
+  items: {
+    qtyKg: number;
+    refundAmount: number;
+    saleItem: { packaging: string; variety: { name: string } };
+  }[];
+}
+
+export function toReturnSlip(r: ReturnForSlip): ReturnSlipData {
+  return {
+    returnId: r.id,
+    billNumber: r.bill.billNumber,
+    returnDate: r.returnDate.toISOString(),
+    customerName: r.bill.customerName,
+    cashierName: r.createdBy.displayName,
+    items: r.items.map((i) => ({
+      varietyName: i.saleItem.variety.name,
+      packaging: i.saleItem.packaging,
+      qtyKg: i.qtyKg,
+      refundAmount: i.refundAmount,
+    })),
+    refundAmount: r.refundAmount,
+    dueReduced: r.dueReduced,
+    cashRefunded: r.cashRefunded,
+    note: r.note,
+  };
+}
+
 interface BillForReceipt {
   billNumber: number;
   billDate: Date;

@@ -16,6 +16,7 @@ model User {
   createdAt    DateTime   @default(now())
   purchases    Purchase[]
   bills        Bill[]
+  returns      BillReturn[]
 }
 
 model Variety {
@@ -81,6 +82,7 @@ model Bill {
   createdBy      User       @relation(fields: [createdById], references: [id])
   createdAt      DateTime   @default(now())
   items          SaleItem[]
+  returns        BillReturn[]
 
   @@index([billDate])
 }
@@ -97,7 +99,49 @@ model SaleItem {
   totalRevenue Float
   costAtSale   Float
   profit       Float
+  // Kilos of this line already taken back by returns.
+  returnedKg   Float    @default(0)
+  returnItems  ReturnItem[]
 
   @@index([varietyId])
   @@index([billId])
+}
+
+// A refund: the customer brings rice back from a bill and gets money back (or less owed).
+model BillReturn {
+  id           String       @id @default(cuid())
+  billId       String
+  bill         Bill         @relation(fields: [billId], references: [id])
+  refundAmount Float
+  // Part of the refund that just reduced what the customer still owed on credit.
+  dueReduced   Float        @default(0)
+  // The rest, handed back as cash.
+  cashRefunded Float
+  note         String?
+  returnDate   DateTime     @default(now())
+  createdById  String
+  createdBy    User         @relation(fields: [createdById], references: [id])
+  items        ReturnItem[]
+
+  @@index([billId])
+  @@index([returnDate])
+}
+
+model ReturnItem {
+  id              String     @id @default(cuid())
+  returnId        String
+  return          BillReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  saleItemId      String
+  saleItem        SaleItem   @relation(fields: [saleItemId], references: [id])
+  qtyKg           Float
+  refundAmount    Float
+  // What to take off the sales reports: gross revenue, cost and profit of the returned kilos
+  // (same basis the reports use), plus the bill discount that is given back with them.
+  revenueReversed  Float
+  costReversed     Float
+  profitReversed   Float
+  discountReversed Float
+
+  @@index([saleItemId])
+  @@index([returnId])
 }
