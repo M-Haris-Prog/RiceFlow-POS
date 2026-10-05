@@ -29,10 +29,11 @@ export default async function DashboardPage() {
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold text-[var(--foreground)]">Dashboard</h1>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <StatCard label="Today's Sales (kg)" value={formatNumber(today.totals.qtyKg)} />
         <StatCard label="Today's Revenue" value={formatNumber(today.totals.revenue)} />
         <StatCard label="Today's Profit" value={formatNumber(today.totals.profit)} />
+        <StatCard label="Refunded Today" value={formatNumber(today.refundTotal)} />
         <StatCard label="Total Stock Value" value={formatNumber(totalStockValue)} />
       </div>
 

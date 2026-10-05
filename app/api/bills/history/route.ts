@@ -39,7 +39,13 @@ export async function GET(request: Request) {
     include: {
       createdBy: { select: { displayName: true } },
       items: { select: { profit: true } },
-      returns: { include: { items: true } },
+      returns: {
+        orderBy: { returnDate: "asc" },
+        include: {
+          createdBy: { select: { displayName: true } },
+          items: { include: { saleItem: { include: { variety: true } } } },
+        },
+      },
     },
   });
 
@@ -63,6 +69,18 @@ export async function GET(request: Request) {
         itemCount: b.items.length,
         total: b.total,
         refunded,
+        // What came back, so the list can say so: which rice, how much, who refunded it, when and why.
+        returns: b.returns.map((r) => ({
+          returnDate: r.returnDate.toISOString(),
+          refundAmount: r.refundAmount,
+          cashierName: r.createdBy.displayName,
+          note: r.note,
+          items: r.items.map((i) => ({
+            varietyName: i.saleItem.variety.name,
+            packaging: i.saleItem.packaging,
+            qtyKg: i.qtyKg,
+          })),
+        })),
         // What the sale is worth after any refunds.
         netTotal: b.total - refunded,
         paymentMethod: b.paymentMethod,

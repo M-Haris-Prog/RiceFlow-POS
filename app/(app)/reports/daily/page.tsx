@@ -15,6 +15,7 @@ interface DailyReport {
   rows: DailyReportRow[];
   totals: { qtyKg: number; revenue: number; profit: number };
   billCount: number;
+  refundTotal: number;
 }
 
 export default function DailyReportPage() {
@@ -46,6 +47,13 @@ export default function DailyReportPage() {
       </div>
 
       {loading && <p className="text-sm text-[var(--muted)]">Loading...</p>}
+
+      {report && !loading && report.refundTotal > 0 && (
+        <p className="rounded-lg bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-text)]">
+          ↩ Rs {formatNumber(report.refundTotal)} was refunded to customers on this day. The figures below already have the
+          returned rice taken off. Details are in Bill history.
+        </p>
+      )}
 
       {report && !loading && (
         <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">

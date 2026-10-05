@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { formatNumber, paymentLabel, todayInputValue } from "@/lib/format";
 import { packagingLabel } from "@/lib/packaging";
 import type { ReceiptData, ReturnableItem, ReturnSlipData } from "@/lib/receipt";
@@ -16,6 +16,13 @@ interface BillRow {
   itemCount: number;
   total: number;
   refunded: number;
+  returns: {
+    returnDate: string;
+    refundAmount: number;
+    cashierName: string;
+    note: string | null;
+    items: { varietyName: string; packaging: string; qtyKg: number }[];
+  }[];
   netTotal: number;
   paymentMethod: string;
   amountDue: number;
@@ -66,6 +73,7 @@ export default function BillHistoryPage() {
   const [data, setData] = useState<HistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
+  const [onlyRefunded, setOnlyRefunded] = useState(false);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
 
@@ -173,6 +181,9 @@ export default function BillHistoryPage() {
   }
 
   const isOwner = data?.role === "OWNER";
+  const shownBills = data?.bills.filter((b) => !onlyRefunded || b.returns.length > 0) ?? [];
+  const returnedText = (items: { varietyName: string; packaging: string; qtyKg: number }[]) =>
+    items.map((i) => `${formatNumber(i.qtyKg)} kg ${i.varietyName} (${packagingLabel(i.packaging)})`).join(", ");
 
   return (
     <div className="flex flex-col gap-4">
@@ -212,6 +223,16 @@ export default function BillHistoryPage() {
         />
       </div>
 
+      <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
+        <input
+          type="checkbox"
+          checked={onlyRefunded}
+          onChange={(e) => setOnlyRefunded(e.target.checked)}
+          className="h-4 w-4 accent-[var(--accent-strong)]"
+        />
+        Show only bills with refunds
+      </label>
+
       {data && (
         <div className="flex flex-wrap gap-6 text-sm">
           <Metric value={data.totals.count} label="bills" />
@@ -233,8 +254,10 @@ export default function BillHistoryPage() {
       <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
         {loading ? (
           <p className="px-4 py-6 text-sm text-[var(--muted)]">Loading...</p>
-        ) : !data || data.bills.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-[var(--muted)]">No bills found.</p>
+        ) : !data || shownBills.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-[var(--muted)]">
+            {onlyRefunded ? "No refunded bills in this list." : "No bills found."}
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -251,11 +274,13 @@ export default function BillHistoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.bills.map((b) => (
+                {shownBills.map((b) => (
+                  <Fragment key={b.id}>
                   <tr
-                    key={b.id}
                     onClick={() => openBill(b.id)}
-                    className="cursor-pointer border-t border-[var(--border)] hover:bg-[var(--surface-hover)]"
+                    className={`cursor-pointer border-t border-[var(--border)] hover:bg-[var(--surface-hover)] ${
+                      b.returns.length > 0 ? "bg-[var(--danger-bg)]/40" : ""
+                    }`}
                   >
                     <td className="px-4 py-2 font-medium text-[var(--foreground)]">#{b.billNumber}</td>
                     <td className="whitespace-nowrap px-4 py-2 text-[var(--foreground)]">{formatWhen(b.billDate)}</td>
@@ -280,6 +305,23 @@ export default function BillHistoryPage() {
                     {isOwner && <td className="px-4 py-2 text-[var(--foreground)]">{formatNumber(b.profit ?? 0)}</td>}
                     {isOwner && <td className="px-4 py-2 text-[var(--muted)]">{b.cashierName}</td>}
                   </tr>
+                  {b.returns.length > 0 && (
+                    <tr
+                      onClick={() => openBill(b.id)}
+                      className="cursor-pointer bg-[var(--danger-bg)]/40 hover:bg-[var(--surface-hover)]"
+                    >
+                      <td colSpan={isOwner ? 8 : 6} className="px-4 pb-2 text-xs text-[var(--danger-text)]">
+                        {b.returns.map((r, i) => (
+                          <p key={i}>
+                            <span className="font-semibold">↩ RETURNED:</span> {returnedText(r.items)} · Rs{" "}
+                            {formatNumber(r.refundAmount)} refunded · {formatWhen(r.returnDate)} · by {r.cashierName}
+                            {r.note ? ` · “${r.note}”` : ""}
+                          </p>
+                        ))}
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -303,25 +345,27 @@ export default function BillHistoryPage() {
                 <ReturnSlipPrint slip={slip} showOnScreen />
               </>
             ) : (
-              <ReceiptPrint receipt={detail.receipt} showOnScreen={mode === "receipt"} />
+              <>
+                {mode === "receipt" && detail.returns.length > 0 && (
+                  <div className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] p-3 text-sm text-[var(--danger-text)]">
+                    <p className="mb-1 font-semibold">
+                      ↩ {refundableItems.length === 0 ? "This bill was fully refunded" : "Part of this bill was refunded"}
+                    </p>
+                    {detail.returns.map((r) => (
+                      <p key={r.returnId} className="text-xs">
+                        {returnedText(r.items)} returned · Rs {formatNumber(r.refundAmount)} refunded ·{" "}
+                        {formatWhen(r.returnDate)} · by {r.cashierName}
+                        {r.note ? ` · “${r.note}”` : ""}
+                      </p>
+                    ))}
+                  </div>
+                )}
+                <ReceiptPrint receipt={detail.receipt} showOnScreen={mode === "receipt"} />
+              </>
             )}
 
             {mode === "receipt" && (
               <>
-                {detail.returns.length > 0 && (
-                  <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-sm">
-                    <p className="mb-1 font-medium text-[var(--foreground)]">Refunds on this bill</p>
-                    {detail.returns.map((r) => (
-                      <div key={r.returnId} className="flex justify-between gap-2 text-[var(--muted)]">
-                        <span>
-                          {formatWhen(r.returnDate)} · {r.items.map((i) => `${formatNumber(i.qtyKg)}kg ${i.varietyName}`).join(", ")}
-                        </span>
-                        <span className="whitespace-nowrap text-[var(--foreground)]">Rs {formatNumber(r.refundAmount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
                 {detail.owner && (
                   <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-sm">
                     <div className="flex justify-between text-[var(--muted)]">
