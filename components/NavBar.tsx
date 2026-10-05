@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const ALL_LINKS = [
   { href: "/", label: "Dashboard", icon: "🏠" },
@@ -59,7 +60,8 @@ export default function NavBar({
             );
           })}
         </nav>
-        <div className="border-t border-[var(--border)] p-3">
+        <div className="flex flex-col gap-2 border-t border-[var(--border)] p-3">
+          <ThemeToggle className="w-full" />
           <button
             onClick={handleLogout}
             className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-[var(--muted)] hover:bg-[var(--surface-hover)]"
@@ -75,12 +77,15 @@ export default function NavBar({
           <p className="text-sm font-semibold text-[var(--foreground)]">Rice Shop</p>
           <p className="text-xs text-[var(--muted)]">{displayName}</p>
         </div>
-        <button
-          onClick={handleLogout}
-          className="rounded-lg px-3 py-1.5 text-sm font-medium text-[var(--muted)] hover:bg-[var(--surface-hover)]"
-        >
-          Log out
-        </button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <button
+            onClick={handleLogout}
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-[var(--muted)] hover:bg-[var(--surface-hover)]"
+          >
+            Log out
+          </button>
+        </div>
       </header>
 
       {/* Mobile bottom nav */}

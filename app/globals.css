@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* Dark is the default. The "light" theme overrides the same names (set via data-theme on <html>). */
 :root {
   color-scheme: dark;
   --background: #0a0b0a;
@@ -10,6 +11,43 @@
   --muted: #8b9089;
   --accent: #6ee7a0;
   --accent-strong: #34d472;
+  --danger-bg: #450a0a;
+  --danger-text: #fca5a5;
+  --danger-border: #7f1d1d;
+  --warn-bg: #451a03;
+  --warn-text: #fcd34d;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --background: #f4f6f3;
+  --surface: #ffffff;
+  --surface-hover: #eef1ec;
+  --border: #d9ded6;
+  --foreground: #141a14;
+  --muted: #5f6a62;
+  --accent: #15803d;
+  --accent-strong: #34d472;
+  --danger-bg: #fee2e2;
+  --danger-text: #b91c1c;
+  --danger-border: #fca5a5;
+  --warn-bg: #fef3c7;
+  --warn-text: #92400e;
+}
+
+/* The White / Black switch: highlight whichever matches the current theme. */
+.theme-option {
+  color: var(--muted);
+}
+
+.theme-option:hover {
+  background: var(--surface-hover);
+}
+
+:root[data-theme="light"] .theme-option[data-value="light"],
+:root[data-theme="dark"] .theme-option[data-value="dark"] {
+  background: var(--accent-strong);
+  color: #000;
 }
 
 body {
@@ -22,7 +60,6 @@ input,
 select,
 textarea {
   font-size: 1rem;
-  color-scheme: dark;
 }
 
 ::placeholder {
@@ -63,6 +100,11 @@ textarea {
   color: #111;
   position: relative;
   font-family: ui-monospace, SFMono-Regular, "Courier New", monospace;
+}
+
+/* On the light theme the white paper would blend into the page, so give it an edge. */
+:root[data-theme="light"] .receipt-paper {
+  box-shadow: 0 0 0 1px var(--border), 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .receipt-paper::after {

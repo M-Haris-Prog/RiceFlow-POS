@@ -119,7 +119,7 @@ export default function BillHistoryPage() {
       )}
 
       {detailError && (
-        <p className="rounded-lg bg-red-950 px-3 py-2 text-sm text-red-300">{detailError}</p>
+        <p className="rounded-lg bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-text)]">{detailError}</p>
       )}
 
       <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
@@ -168,7 +168,7 @@ export default function BillHistoryPage() {
                     <td className="whitespace-nowrap px-4 py-2 text-[var(--foreground)]">
                       {paymentLabel(b.paymentMethod)}
                       {b.amountDue > 0 && (
-                        <span className="ml-2 rounded bg-amber-950 px-1.5 py-0.5 text-xs text-amber-300">
+                        <span className="ml-2 rounded bg-[var(--warn-bg)] px-1.5 py-0.5 text-xs text-[var(--warn-text)]">
                           Due {formatNumber(b.amountDue)}
                         </span>
                       )}

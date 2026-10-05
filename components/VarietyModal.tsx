@@ -188,7 +188,7 @@ export default function VarietyModal({
             </div>
           </div>
 
-          {error && <p className="rounded-lg bg-red-950 px-3 py-2 text-sm text-red-300">{error}</p>}
+          {error && <p className="rounded-lg bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-text)]">{error}</p>}
 
           <div className="mt-2 flex gap-2">
             <button

@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,6 +37,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
+      <ThemeToggle className="absolute right-4 top-4" />
       <div className="w-full max-w-sm rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
         <h1 className="mb-1 text-xl font-semibold text-[var(--foreground)]">
           Rice Shop Inventory
@@ -82,7 +84,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <p className="rounded-lg bg-red-950 px-3 py-2 text-sm text-red-300">{error}</p>
+            <p className="rounded-lg bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-text)]">{error}</p>
           )}
 
           <button

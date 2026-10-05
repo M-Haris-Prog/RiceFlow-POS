@@ -12,6 +12,7 @@ A shared inventory and point-of-sale system for the rice shop: a bill screen for
 - **Printing:** after a sale, "Print receipt" opens the normal print dialog with a clean receipt (nothing else from the page). For a thermal receipt printer, choose it in the dialog and set the paper size to 80mm. There's an option to print automatically after every sale; to skip the dialog entirely, run Chrome with the `--kiosk-printing` flag.
 - **Bill history** (`/bills`): every bill, searchable by bill number, customer name or phone, with a date range, a "still due" total and a reprint button. Owners also see cost and profit per bill. Cashiers see only today's bills and no cost or profit.
 - Both owners log in with their own username/password and see the same live data.
+- **Theme:** everyone can pick **White** or **Black** with the switch in the menu (top bar on a phone, and on the login page). The choice is remembered separately on each device and browser. Receipts always print black on white.
 - **Two kinds of accounts.** *Owners* can see and do everything: bills, purchases, stock (add/edit/correct/delete), cost prices, profit and loss, and reports. The *cashier* account can only make bills: it sees varieties, selling prices and kilos in stock, but never cost prices, profit, purchases or reports. This is enforced on the server, not just hidden in the menu.
 
 ## Local development

@@ -203,7 +203,7 @@ export default function StockPage() {
       </div>
 
       {actionError && (
-        <p className="rounded-lg bg-red-950 px-3 py-2 text-sm text-red-300">{actionError}</p>
+        <p className="rounded-lg bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-text)]">{actionError}</p>
       )}
 
       <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
@@ -290,7 +290,7 @@ export default function StockPage() {
                           </button>
                           <button
                             onClick={() => handleDelete(v)}
-                            className="rounded-lg border border-red-900 px-2.5 py-1.5 text-xs font-medium text-red-400 hover:bg-red-950"
+                            className="rounded-lg border border-[var(--danger-border)] px-2.5 py-1.5 text-xs font-medium text-[var(--danger-text)] hover:bg-[var(--danger-bg)]"
                           >
                             Delete
                           </button>
