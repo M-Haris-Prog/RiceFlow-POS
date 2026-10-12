@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { endOfDay, startOfDay } from "date-fns";
+import { isToday } from "@/lib/dates";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { returnSchema } from "@/lib/validation";
@@ -28,8 +28,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Bill not found" }, { status: 404 });
   }
   if (user.role === "CASHIER") {
-    const today = bill.billDate >= startOfDay(new Date()) && bill.billDate <= endOfDay(new Date());
-    if (!today) {
+    if (!isToday(bill.billDate)) {
       return NextResponse.json(
         { error: "Only an owner can refund an older bill." },
         { status: 403 }

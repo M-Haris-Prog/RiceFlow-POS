@@ -29,50 +29,28 @@ Open [http://localhost:3000](http://localhost:3000). Local credentials come from
 
 ## Deploying so both owners can use it
 
-The shop owner will use this from the shop computer's browser; the other owner from his phone's browser, from wherever he is. For that, the app needs to live on the internet rather than just on one computer. This project is set up to deploy for free on **Vercel** (hosting) + **Neon** (a free Postgres database).
+The software has to live on the internet so both owners (and the counter) can reach the same live data.
+It is set up for **cPanel hosting** with Node.js, such as Namecheap's Stellar Plus plan, at an address like
+`https://pos.yourdomain.com`.
 
-### 1. Create a free Postgres database (Neon)
+**Full step-by-step guide: [docs/DEPLOY-CPANEL.md](docs/DEPLOY-CPANEL.md)**
 
-1. Go to [neon.tech](https://neon.tech) and sign up (free tier is enough).
-2. Create a new project (e.g. `rice-shop`).
-3. From the project dashboard, copy the **connection string** (starts with `postgresql://...`).
+In short:
+1. `npm run package:cpanel` builds the site on your computer and creates `dist-cpanel/shop-pos.zip`.
+2. In GoDaddy (or wherever the domain is), add an **A record** for `pos` pointing at the hosting server's IP.
+3. In cPanel: create the `pos` subdomain, upload and extract the zip, create the Node.js app (Node 22, startup file
+   `app.js`), add the settings (database location, secret key, the three logins) in the app's *Environment variables*, then
+   run the `setup` script from the Node.js page and restart the app.
+4. Turn on HTTPS (AutoSSL) and add the daily backup cron job.
 
-### 2. Put the code on GitHub
+**About the database:** the live site uses a single SQLite file kept *outside* the web folder
+(`/home/USER/shop-data/shop.db`), with a daily backup (`backup.cjs`, run from a cron job). Passwords and the secret key live
+only in cPanel's settings, never in the code or the zip (the packaging step checks for this and removes any `.env` or
+database file it finds).
 
-1. Create a new repository on [github.com](https://github.com).
-2. Push this project to it:
-   ```bash
-   git remote add origin <your-repo-url>
-   git push -u origin main
-   ```
-
-### 3. Deploy on Vercel
-
-1. Go to [vercel.com](https://vercel.com) and sign up/log in (GitHub login is easiest).
-2. Click **Add New Project** and import the GitHub repo you just created.
-3. Before deploying, open **Environment Variables** and add:
-   - `DATABASE_URL` — the Neon connection string from step 1
-   - `SESSION_SECRET` — any random string, 32+ characters (e.g. generate one with `openssl rand -hex 32`)
-   - `OWNER1_USERNAME`, `OWNER1_PASSWORD` — the shop owner's login
-   - `OWNER2_USERNAME`, `OWNER2_PASSWORD` — the other owner's login
-   - `CASHIER_USERNAME`, `CASHIER_PASSWORD` — the counter staff login (can only make bills)
-4. Click **Deploy**.
-
-### 4. Set up the production database (one-time)
-
-The database needs its tables created and the two owner accounts seeded. From your own computer, with the Neon connection string set as `DATABASE_URL`:
-
-```bash
-# change the datasource provider in prisma/schema.prisma from "sqlite" to "postgresql" first
-npx prisma migrate deploy
-npx prisma db seed
-```
-
-(Ask Claude to do this step for you if you'd rather not run it yourself — just share the Neon connection string.)
-
-### 5. Open it from both places
-
-Visit the `*.vercel.app` link Vercel gives you — from the shop computer's browser and from the other owner's phone browser. Both will see the same stock, purchases, sales, and reports, live.
+**Other hosts (Render, Railway, a VPS):** the site is a normal Node.js app, so it can run elsewhere, but the database
+step differs. SQLite needs a disk that is kept between restarts; otherwise the database would have to be switched to
+PostgreSQL, which means creating a PostgreSQL version of the migrations (the existing ones are written for SQLite).
 
 ## Notes
 

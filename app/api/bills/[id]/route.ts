@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { endOfDay, startOfDay } from "date-fns";
+import { isToday } from "@/lib/dates";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { toReceipt, toReturnSlip, type ReturnableItem } from "@/lib/receipt";
@@ -32,8 +32,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   if (user.role === "CASHIER") {
-    const today = bill.billDate >= startOfDay(new Date()) && bill.billDate <= endOfDay(new Date());
-    if (!today) {
+    if (!isToday(bill.billDate)) {
       return NextResponse.json({ error: "Not allowed" }, { status: 403 });
     }
   }

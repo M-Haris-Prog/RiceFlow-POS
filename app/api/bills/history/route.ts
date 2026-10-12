@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { endOfDay, startOfDay, subDays } from "date-fns";
+import { endOfShopDay, startOfShopDay } from "@/lib/dates";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 
@@ -15,21 +15,19 @@ export async function GET(request: Request) {
   const q = (searchParams.get("q") ?? "").trim().toLowerCase();
 
   // Cashiers only ever see today's bills, whatever dates they ask for.
-  let from: Date;
-  let to: Date;
+  let from: Date | null;
+  let to: Date | null;
   if (user.role === "CASHIER") {
-    from = startOfDay(new Date());
-    to = endOfDay(new Date());
+    from = startOfShopDay();
+    to = endOfShopDay();
   } else {
     const fromParam = searchParams.get("from");
     const toParam = searchParams.get("to");
-    const fromDate = fromParam ? new Date(fromParam) : subDays(new Date(), 6);
-    const toDate = toParam ? new Date(toParam) : new Date();
-    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
-      return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
-    }
-    from = startOfDay(fromDate);
-    to = endOfDay(toDate);
+    from = fromParam ? startOfShopDay(fromParam) : startOfShopDay(undefined, 6);
+    to = toParam ? endOfShopDay(toParam) : endOfShopDay();
+  }
+  if (!from || !to) {
+    return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
   }
 
   const bills = await prisma.bill.findMany({

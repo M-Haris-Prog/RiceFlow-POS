@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDailySalesReport } from "@/lib/reports";
 import { getCurrentUser } from "@/lib/session";
+import { startOfShopDay } from "@/lib/dates";
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();
@@ -13,12 +14,10 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const dateParam = searchParams.get("date");
-  const date = dateParam ? new Date(dateParam) : new Date();
-
-  if (Number.isNaN(date.getTime())) {
+  if (dateParam && !startOfShopDay(dateParam)) {
     return NextResponse.json({ error: "Invalid date" }, { status: 400 });
   }
 
-  const report = await getDailySalesReport(date);
+  const report = await getDailySalesReport(dateParam ?? undefined);
   return NextResponse.json(report);
 }

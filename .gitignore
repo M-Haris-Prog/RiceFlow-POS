@@ -43,3 +43,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# cPanel upload package built by npm run package:cpanel
+/dist-cpanel
+/prisma/deploy.schema.prisma

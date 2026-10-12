@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { startOfDay, endOfDay } from "date-fns";
+import { endOfShopDay, startOfShopDay } from "@/lib/dates";
 import { packagingLabel } from "@/lib/packaging";
 
 const lineLabel = (name: string, packaging: string) => `${name} (${packagingLabel(packaging)})`;
@@ -12,9 +12,10 @@ export interface DailyReportRow {
 }
 
 // Sales per variety and packaging for one day, minus anything refunded that day.
-export async function getDailySalesReport(date: Date) {
-  const from = startOfDay(date);
-  const to = endOfDay(date);
+export async function getDailySalesReport(day?: string | Date) {
+  const from = startOfShopDay(day);
+  const to = endOfShopDay(day);
+  if (!from || !to) throw new Error("Invalid date");
 
   const [items, returned] = await Promise.all([
     prisma.saleItem.findMany({
@@ -83,9 +84,10 @@ export interface ProfitLossRow {
   purchaseCost: number;
 }
 
-export async function getProfitLossReport(from: Date, to: Date) {
-  const rangeFrom = startOfDay(from);
-  const rangeTo = endOfDay(to);
+export async function getProfitLossReport(from?: string | Date, to?: string | Date) {
+  const rangeFrom = startOfShopDay(from);
+  const rangeTo = endOfShopDay(to);
+  if (!rangeFrom || !rangeTo) throw new Error("Invalid date range");
 
   const [saleItems, purchases, returned] = await Promise.all([
     prisma.saleItem.findMany({
