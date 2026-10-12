@@ -56,5 +56,5 @@ PostgreSQL, which means creating a PostgreSQL version of the migrations (the exi
 
 - New rice varieties can be created from the Stock page ("Add variety"), or just by typing a new name the first time you record a purchase.
 - Selling more than what's in stock is blocked with a clear message, so the stock numbers always stay trustworthy.
-- The shop name and address shown on the receipt come from `NEXT_PUBLIC_SHOP_NAME` and `NEXT_PUBLIC_SHOP_ADDRESS` in `.env` — change those and restart the app to update them.
+- The shop name and address shown on the receipt come from `NEXT_PUBLIC_SHOP_NAME` and `NEXT_PUBLIC_SHOP_ADDRESS` in `.env` — change those and restart `npm run dev` to see it on your own computer. On the live hosting the name and address are built into the upload zip, so after changing them run `npm run package:cpanel` again and upload the new zip.
 - "Credit" is just a payment-method label for record-keeping — if you leave "Amount received" blank it's treated as paid in full; enter a smaller amount (or 0) to track how much is still due.
