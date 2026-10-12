@@ -9,7 +9,7 @@ const urdu = Noto_Nastaliq_Urdu({
 
 // Override either one with NEXT_PUBLIC_SHOP_NAME / NEXT_PUBLIC_SHOP_ADDRESS in .env.
 const SHOP_NAME = process.env.NEXT_PUBLIC_SHOP_NAME || "الشیخ ٹریڈرز";
-const SHOP_ADDRESS = process.env.NEXT_PUBLIC_SHOP_ADDRESS || "جھنگ";
+const SHOP_ADDRESS = process.env.NEXT_PUBLIC_SHOP_ADDRESS || "سیٹلائٹ ٹاؤن جھنگ";
 
 export default function ShopHeader() {
   return (
