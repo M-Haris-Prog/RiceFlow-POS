@@ -19,7 +19,7 @@ const localTest = args.includes("--local-test");
 const targetsArg = args.find((a) => a.startsWith("--targets="));
 const targets = targetsArg
   ? targetsArg.slice("--targets=".length).split(",").filter(Boolean)
-  : ["rhel-openssl-1.0.x", "rhel-openssl-3.0.x", "debian-openssl-1.1.x", "debian-openssl-3.0.x"];
+  : ["rhel-openssl-1.0.x", "rhel-openssl-3.0.x", "debian-openssl-1.0.x", "debian-openssl-1.1.x", "debian-openssl-3.0.x"];
 
 const run = (cmd) => execSync(cmd, { cwd: root, stdio: "inherit" });
 const step = (n, text) => console.log(`\n=== ${n}. ${text} ===`);
