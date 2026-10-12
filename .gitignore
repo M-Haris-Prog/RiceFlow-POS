@@ -47,3 +47,6 @@ next-env.d.ts
 # cPanel upload package built by npm run package:cpanel
 /dist-cpanel
 /prisma/deploy.schema.prisma
+
+# The example settings file holds placeholders only, so it is kept in git
+!.env.example
