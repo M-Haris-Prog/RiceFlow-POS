@@ -109,9 +109,10 @@ it somewhere that is not this hosting.
 
 1. Open `https://pos.alshaikhtraders.com` and sign in as an owner.
 2. Add a variety with some stock, make a bill, print it, refund part of it, look at the daily report.
-3. Sign in as the cashier. They should see only New Bill and Bills, and no cost prices.
-4. Check the shop name and city print correctly in Urdu.
-5. Only then start using it for real sales.
+3. As an owner, open **Expenses**, add one (for example Fuel, Rs 500) and check it shows in the list and on the Daily report.
+4. Sign in as the cashier. They should see only New Bill and Bills, and no cost prices and no Expenses.
+5. Check the shop name and city print correctly in Urdu.
+6. Only then start using it for real sales.
 
 ## Updating later
 

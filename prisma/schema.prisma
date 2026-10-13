@@ -17,6 +17,7 @@ model User {
   purchases    Purchase[]
   bills        Bill[]
   returns      BillReturn[]
+  expenses     Expense[]
 }
 
 model Variety {
@@ -144,4 +145,18 @@ model ReturnItem {
 
   @@index([saleItemId])
   @@index([returnId])
+}
+
+// Money the shop spends that is not stock: fuel, food, salaries, rent and so on.
+model Expense {
+  id          String   @id @default(cuid())
+  category    String
+  amount      Float
+  note        String?
+  expenseDate DateTime
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([expenseDate])
 }

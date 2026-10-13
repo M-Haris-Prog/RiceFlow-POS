@@ -18,6 +18,8 @@ interface ProfitLossReport {
   to: string;
   rows: ProfitLossRow[];
   totals: { revenue: number; cogs: number; profit: number; purchaseCost: number };
+  expenses: { total: number; byCategory: { category: string; total: number; count: number }[] };
+  netProfit: number;
 }
 
 function firstOfMonthInputValue() {
@@ -69,12 +71,39 @@ export default function ProfitLossPage() {
 
       {report && !loading && (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
             <StatCard label="Revenue" value={formatNumber(report.totals.revenue)} />
             <StatCard label="Cost of Goods Sold" value={formatNumber(report.totals.cogs)} />
             <StatCard label="Gross Profit" value={formatNumber(report.totals.profit)} />
+            <StatCard label="Expenses" value={formatNumber(report.expenses.total)} />
+            <StatCard label="Net Profit" value={formatNumber(report.netProfit)} />
             <StatCard label="Purchases (cost)" value={formatNumber(report.totals.purchaseCost)} />
           </div>
+          <p className="text-xs text-[var(--muted)]">
+            Net profit = gross profit minus expenses (fuel, food, etc.). Purchases are not counted as
+            expenses: the rice you buy is already in the cost of goods sold when it is sold.
+          </p>
+
+          {report.expenses.byCategory.length > 0 && (
+            <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+              <div className="border-b border-[var(--border)] px-4 py-3">
+                <h2 className="text-sm font-semibold text-[var(--foreground)]">Expenses by type</h2>
+              </div>
+              <table className="w-full text-sm">
+                <tbody>
+                  {report.expenses.byCategory.map((c) => (
+                    <tr key={c.category} className="border-t border-[var(--border)] first:border-t-0">
+                      <td className="px-4 py-2 font-medium text-[var(--foreground)]">{c.category}</td>
+                      <td className="px-4 py-2 text-[var(--muted)]">{c.count} entries</td>
+                      <td className="px-4 py-2 text-right text-[var(--foreground)]">
+                        {formatNumber(c.total)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
             {report.rows.length === 0 ? (

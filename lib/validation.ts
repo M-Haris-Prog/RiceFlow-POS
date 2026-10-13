@@ -47,6 +47,13 @@ export const returnSchema = z.object({
   note: z.string().trim().max(200).optional().or(z.literal("")),
 });
 
+export const expenseSchema = z.object({
+  category: z.string().trim().min(1, "Choose or write what the expense is for").max(40, "Category is too long"),
+  amount: z.coerce.number().positive("Amount must be greater than 0").max(1e9, "Amount is too large"),
+  expenseDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a date"),
+  note: z.string().trim().max(200, "Note is too long").optional().or(z.literal("")),
+});
+
 export const varietyCreateSchema = z
   .object({
     name: z.string().trim().min(1, "Name is required"),
@@ -72,6 +79,7 @@ export const varietyUpdateSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type PurchaseInput = z.infer<typeof purchaseSchema>;
+export type ExpenseInput = z.infer<typeof expenseSchema>;
 export type ReturnInput = z.infer<typeof returnSchema>;
 export type BillInput = z.infer<typeof billSchema>;
 export type VarietyCreateInput = z.infer<typeof varietyCreateSchema>;

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { endOfShopDay, startOfShopDay } from "@/lib/dates";
 import { packagingLabel } from "@/lib/packaging";
+import { getExpenseSummary } from "@/lib/expenses";
 
 const lineLabel = (name: string, packaging: string) => `${name} (${packagingLabel(packaging)})`;
 
@@ -68,10 +69,13 @@ export async function getDailySalesReport(day?: string | Date) {
     { qtyKg: 0, revenue: 0, profit: 0 }
   );
 
-  const billCount = await prisma.bill.count({ where: { billDate: { gte: from, lte: to } } });
+  const [billCount, expenses] = await Promise.all([
+    prisma.bill.count({ where: { billDate: { gte: from, lte: to } } }),
+    getExpenseSummary(from, to),
+  ]);
   const refundTotal = returned.reduce((sum, r) => sum + r.refundAmount, 0);
 
-  return { date: from, rows, totals, billCount, refundTotal };
+  return { date: from, rows, totals, billCount, refundTotal, expenses };
 }
 
 export interface ProfitLossRow {
@@ -164,5 +168,9 @@ export async function getProfitLossReport(from?: string | Date, to?: string | Da
     { revenue: 0, cogs: 0, profit: 0, purchaseCost: 0 }
   );
 
-  return { from: rangeFrom, to: rangeTo, rows, totals };
+  // What the shop spent on running costs (fuel, food, ...) comes off the gross profit.
+  const expenses = await getExpenseSummary(rangeFrom, rangeTo);
+  const netProfit = totals.profit - expenses.total;
+
+  return { from: rangeFrom, to: rangeTo, rows, totals, expenses, netProfit };
 }

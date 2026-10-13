@@ -16,6 +16,7 @@ interface DailyReport {
   totals: { qtyKg: number; revenue: number; profit: number };
   billCount: number;
   refundTotal: number;
+  expenses: { total: number; byCategory: { category: string; total: number; count: number }[] };
 }
 
 export default function DailyReportPage() {
@@ -105,6 +106,31 @@ export default function DailyReportPage() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {report && !loading && (
+        <div className="max-w-md rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-sm">
+          <div className="flex justify-between text-[var(--foreground)]">
+            <span>Profit from sales</span>
+            <span>Rs {formatNumber(report.totals.profit)}</span>
+          </div>
+          {report.expenses.byCategory.map((c) => (
+            <div key={c.category} className="mt-1 flex justify-between text-[var(--muted)]">
+              <span>− {c.category}</span>
+              <span>Rs {formatNumber(c.total)}</span>
+            </div>
+          ))}
+          <div className="mt-2 flex justify-between border-t border-[var(--border)] pt-2 font-semibold text-[var(--foreground)]">
+            <span>
+              {report.expenses.total > 0
+                ? "Profit after expenses"
+                : "No expenses recorded this day"}
+            </span>
+            {report.expenses.total > 0 && (
+              <span>Rs {formatNumber(report.totals.profit - report.expenses.total)}</span>
+            )}
+          </div>
         </div>
       )}
     </div>

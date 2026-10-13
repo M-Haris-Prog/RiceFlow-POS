@@ -1,5 +1,5 @@
 import { TZDate } from "@date-fns/tz";
-import { endOfDay, startOfDay, subDays } from "date-fns";
+import { endOfDay, format, startOfDay, subDays } from "date-fns";
 
 // The shop's own timezone. A server abroad runs on its own clock (often UTC), so "today" and the
 // start/end of each report day are always worked out in this zone instead. Override with SHOP_TIMEZONE.
@@ -14,7 +14,11 @@ function shopDay(input?: string | Date | null): TZDate | null {
   if (typeof input === "string") {
     const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(input.trim());
     if (!match) return null;
-    return new TZDate(Number(match[1]), Number(match[2]) - 1, Number(match[3]), SHOP_TIMEZONE);
+    const [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])];
+    const day = new TZDate(y, m - 1, d, SHOP_TIMEZONE);
+    // Reject days that do not exist (2026-13-45, 2026-02-30) instead of letting them roll over.
+    if (day.getFullYear() !== y || day.getMonth() !== m - 1 || day.getDate() !== d) return null;
+    return day;
   }
   return new TZDate(input, SHOP_TIMEZONE);
 }
@@ -38,4 +42,16 @@ export function isToday(moment: Date): boolean {
   const from = startOfShopDay();
   const to = endOfShopDay();
   return !!from && !!to && moment >= from && moment <= to;
+}
+
+// The "YYYY-MM-DD" calendar day (in the shop's timezone) that a moment falls on.
+export function shopDayString(moment: Date): string {
+  return format(new TZDate(moment, SHOP_TIMEZONE), "yyyy-MM-dd");
+}
+
+// A moment safely in the middle of the given "YYYY-MM-DD" shop day, so it stays on that day
+// whatever timezone the server runs in. null if the text isn't a valid day.
+export function middayOfShopDay(input: string): Date | null {
+  const start = startOfShopDay(input);
+  return start ? new Date(start.getTime() + 12 * 60 * 60 * 1000) : null;
 }
