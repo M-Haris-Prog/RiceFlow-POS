@@ -28,6 +28,8 @@ interface RecordReturnInput {
   billId: string;
   items: { saleItemId: string; qtyKg: number }[];
   note?: string | null;
+  // Cash actually handed to the customer now. Leave out for "all of it"; less means the shop still owes the rest.
+  cashPaidNow?: number | null;
   createdById: string;
 }
 
@@ -130,6 +132,14 @@ export async function recordReturn(input: RecordReturnInput) {
     const dueReduced = money(Math.min(stillOwed, refundAmount));
     const cashRefunded = money(refundAmount - dueReduced);
 
+    const paidNow = money(input.cashPaidNow ?? cashRefunded);
+    if (paidNow < 0) {
+      throw new ReturnError("The amount paid cannot be negative.");
+    }
+    if (paidNow > cashRefunded + EPS) {
+      throw new ReturnError(`The cash to give back is only Rs ${cashRefunded}, so you cannot pay more than that.`);
+    }
+
     return tx.billReturn.create({
       data: {
         billId: bill.id,
@@ -139,12 +149,133 @@ export async function recordReturn(input: RecordReturnInput) {
         note: input.note || null,
         createdById: input.createdById,
         items: { create: lines },
+        payments:
+          paidNow > 0 ? { create: { amount: paidNow, createdById: input.createdById } } : undefined,
       },
       include: {
+        payments: { orderBy: { paidAt: "asc" } },
         createdBy: { select: { displayName: true } },
         bill: { select: { billNumber: true, customerName: true } },
         items: { include: { saleItem: { include: { variety: true } } } },
       },
     });
+  });
+}
+
+// How much of one return the shop still owes the customer in cash.
+export function returnOwed(r: { cashRefunded: number; payments: { amount: number }[] }) {
+  const paid = r.payments.reduce((sum, p) => sum + p.amount, 0);
+  return { paid: money(paid), owed: Math.max(0, money(r.cashRefunded - paid)) };
+}
+
+// Every bill where the shop still owes a customer part of a refund.
+export async function getRefundOwedSummary() {
+  const returns = await prisma.billReturn.findMany({
+    where: { cashRefunded: { gt: 0 } },
+    select: { billId: true, cashRefunded: true, payments: { select: { amount: true } } },
+  });
+  const byBill = new Map<string, number>();
+  for (const r of returns) {
+    const { owed } = returnOwed(r);
+    if (owed > EPS) byBill.set(r.billId, money((byBill.get(r.billId) ?? 0) + owed));
+  }
+  return {
+    billIds: Array.from(byBill.keys()),
+    byBill,
+    count: byBill.size,
+    amount: money(Array.from(byBill.values()).reduce((a, b) => a + b, 0)),
+  };
+}
+
+// The shop pays a customer some (or all) of what it still owes them for refunds on a bill.
+// The payment goes against the oldest refund first. One transaction.
+export async function recordRefundPayment(input: {
+  billId: string;
+  amount: number;
+  note?: string | null;
+  createdById: string;
+}) {
+  const amount = money(input.amount);
+  if (!(amount > 0)) {
+    throw new ReturnError("Enter the amount being paid.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const returns = await tx.billReturn.findMany({
+      where: { billId: input.billId },
+      orderBy: { returnDate: "asc" },
+      include: { payments: { select: { amount: true } } },
+    });
+    const open = returns
+      .map((r) => ({ id: r.id, owed: returnOwed(r).owed }))
+      .filter((r) => r.owed > EPS);
+    const totalOwed = money(open.reduce((sum, r) => sum + r.owed, 0));
+    if (totalOwed <= EPS) {
+      throw new ReturnError("Nothing is owed to the customer on this bill.");
+    }
+    if (amount > totalOwed + EPS) {
+      throw new ReturnError(`Only Rs ${totalOwed} is still owed to the customer.`);
+    }
+
+    let left = amount;
+    for (const r of open) {
+      if (left <= EPS) break;
+      const part = money(Math.min(left, r.owed));
+      await tx.refundPayment.create({
+        data: { returnId: r.id, amount: part, note: input.note || null, createdById: input.createdById },
+      });
+      left = money(left - part);
+    }
+    return { paid: amount, stillOwed: money(totalOwed - amount) };
+  });
+}
+
+// Owner-only: removes a refund as if it never happened. The rice goes back out of stock, the bill's
+// returned kilos are restored, and the refund's payments disappear with it. The reports need no change
+// because they are worked out from the refund records. If some of that rice has been sold since, the
+// stock can't cover it and this is refused rather than letting stock go below zero.
+export async function deleteReturn(returnId: string) {
+  return prisma.$transaction(async (tx) => {
+    const ret = await tx.billReturn.findUnique({
+      where: { id: returnId },
+      include: {
+        bill: { select: { billNumber: true } },
+        items: { include: { saleItem: { include: { variety: true } } } },
+      },
+    });
+    if (!ret) {
+      throw new ReturnError("That refund was not found. It may have been deleted already.");
+    }
+
+    for (const line of ret.items) {
+      const item = line.saleItem;
+      const label = `${item.variety.name} (${item.packaging === "BAG" ? "Bag" : "Open"})`;
+      const stock = await tx.stockItem.findUnique({
+        where: { varietyId_packaging: { varietyId: item.varietyId, packaging: item.packaging } },
+      });
+      const held = stock && !stock.archivedAt ? stock.currentStockKg : 0;
+      if (!stock || held + EPS < line.qtyKg) {
+        throw new ReturnError(
+          `Can't delete this refund: it put ${money(line.qtyKg)} kg of ${label} back in stock, but only ${money(held)} kg is there now (some has been sold since).`
+        );
+      }
+
+      const remainingKg = held - line.qtyKg;
+      const costPerKg = item.costAtSale / item.qtyKg;
+      // Take the rice out at the cost it came back in at, so the average cost goes back to what it was.
+      const avgCost =
+        remainingKg > EPS ? Math.max(0, (held * stock.avgCostPerKg - line.qtyKg * costPerKg) / remainingKg) : stock.avgCostPerKg;
+      await tx.stockItem.update({
+        where: { id: stock.id },
+        data: { currentStockKg: Math.max(0, remainingKg), avgCostPerKg: avgCost },
+      });
+      await tx.saleItem.update({
+        where: { id: item.id },
+        data: { returnedKg: { decrement: line.qtyKg } },
+      });
+    }
+
+    await tx.billReturn.delete({ where: { id: returnId } });
+    return { billNumber: ret.bill.billNumber };
   });
 }

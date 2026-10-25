@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { getDailySalesReport } from "@/lib/reports";
+import { getRefundOwedSummary } from "@/lib/returns";
 import { formatNumber } from "@/lib/format";
 import { packagingLabel } from "@/lib/packaging";
 
@@ -11,13 +13,14 @@ export default async function DashboardPage() {
     redirect("/sales/new");
   }
 
-  const [varieties, today] = await Promise.all([
+  const [varieties, today, owed] = await Promise.all([
     prisma.stockItem.findMany({
       where: { archivedAt: null },
       include: { variety: true },
       orderBy: [{ variety: { name: "asc" } }, { packaging: "asc" }],
     }),
     getDailySalesReport(new Date()),
+    getRefundOwedSummary(),
   ]);
 
   const totalStockValue = varieties.reduce(
@@ -28,6 +31,16 @@ export default async function DashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold text-[var(--foreground)]">Dashboard</h1>
+
+      {owed.count > 0 && (
+        <Link
+          href="/bills"
+          className="rounded-lg border border-[var(--warn-text)]/40 bg-[var(--warn-bg)] px-3 py-2 text-sm text-[var(--warn-text)] hover:brightness-110"
+        >
+          💸 You still owe customers <strong>Rs {formatNumber(owed.amount)}</strong> in refunds on {owed.count}{" "}
+          {owed.count === 1 ? "bill" : "bills"}. Open Bills to pay them.
+        </Link>
+      )}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <StatCard label="Today's Sales (kg)" value={formatNumber(today.totals.qtyKg)} />

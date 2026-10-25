@@ -49,9 +49,30 @@ function SlipBody({ slip }: { slip: ReturnSlipData }) {
         </div>
       )}
       <div className="flex justify-between text-xs font-bold">
-        <span>Cash given back</span>
+        <span>Cash due to customer</span>
         <span>Rs {formatNumber(slip.cashRefunded)}</span>
       </div>
+      {slip.payments.map((p, i) => (
+        <div key={i} className="flex justify-between text-xs">
+          <span>
+            Paid{" "}
+            {new Date(p.paidAt).toLocaleDateString(undefined, { day: "2-digit", month: "short" })}
+          </span>
+          <span>Rs {formatNumber(p.amount)}</span>
+        </div>
+      ))}
+      <div className="flex justify-between text-xs font-bold">
+        <span>Total paid</span>
+        <span>Rs {formatNumber(slip.paid)}</span>
+      </div>
+      {slip.owed > 0 ? (
+        <div className="mt-1 flex justify-between border border-black px-1 py-0.5 text-sm font-bold">
+          <span>STILL OWED TO CUSTOMER</span>
+          <span>Rs {formatNumber(slip.owed)}</span>
+        </div>
+      ) : (
+        slip.cashRefunded > 0 && <p className="mt-1 text-center text-xs font-bold">PAID IN FULL</p>
+      )}
       {slip.note && <p className="mt-1 text-xs">Note: {slip.note}</p>}
 
       <div className="my-2 border-t border-dashed border-neutral-500" />

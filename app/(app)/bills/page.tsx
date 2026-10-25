@@ -16,9 +16,14 @@ interface BillRow {
   itemCount: number;
   total: number;
   refunded: number;
+  // Cash still owed to the customer from refunds on this bill.
+  refundOwed: number;
   returns: {
     returnDate: string;
     refundAmount: number;
+    cashRefunded: number;
+    paid: number;
+    owed: number;
     cashierName: string;
     note: string | null;
     items: { varietyName: string; packaging: string; qtyKg: number }[];
@@ -32,7 +37,15 @@ interface BillRow {
 interface HistoryResponse {
   role: "OWNER" | "CASHIER";
   truncated: boolean;
-  totals: { count: number; sales: number; refunded: number; due: number; profit?: number };
+  owedAll: { count: number; amount: number };
+  totals: {
+    count: number;
+    sales: number;
+    refunded: number;
+    owedToCustomers: number;
+    due: number;
+    profit?: number;
+  };
   bills: BillRow[];
 }
 
@@ -43,6 +56,7 @@ interface Detail {
   returns: ReturnSlipData[];
   refunded: number;
   dueNow: number;
+  refundOwed: number;
   owner?: { cost: number; profit: number };
 }
 
@@ -74,6 +88,7 @@ export default function BillHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
   const [onlyRefunded, setOnlyRefunded] = useState(false);
+  const [onlyOwed, setOnlyOwed] = useState(false);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
 
@@ -84,16 +99,29 @@ export default function BillHistoryPage() {
   const [refundError, setRefundError] = useState<string | null>(null);
   const [refunding, setRefunding] = useState(false);
   const [slip, setSlip] = useState<ReturnSlipData | null>(null);
+  const [slipFresh, setSlipFresh] = useState(false);
+  // null = hand over all the cash now; otherwise the amount typed.
+  const [paidNowText, setPaidNowText] = useState<string | null>(null);
+
+  // Paying the customer what is still owed, and deleting a refund (owners)
+  const [payAmount, setPayAmount] = useState("");
+  const [payNote, setPayNote] = useState("");
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+  const [payMessage, setPayMessage] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- loading flag for a fetch triggered by the filters changing
     setLoading(true);
     const params = new URLSearchParams({ from, to, q });
+    if (onlyOwed) params.set("owed", "1");
     fetch(`/api/bills/history?${params}`)
       .then((r) => r.json())
       .then((d) => setData(d))
       .finally(() => setLoading(false));
-  }, [from, to, q, reloadKey]);
+  }, [from, to, q, onlyOwed, reloadKey]);
 
   async function loadDetail(id: string) {
     const res = await fetch(`/api/bills/${id}`);
@@ -112,6 +140,11 @@ export default function BillHistoryPage() {
     setDetail(d);
     setMode("receipt");
     setSlip(null);
+    setPayAmount(d.refundOwed > 0 ? String(d.refundOwed) : "");
+    setPayNote("");
+    setPayError(null);
+    setPayMessage(null);
+    setDeleteId(null);
   }
 
   function closeDetail() {
@@ -119,6 +152,9 @@ export default function BillHistoryPage() {
     setMode("receipt");
     setSlip(null);
     setRefundError(null);
+    setPayError(null);
+    setPayMessage(null);
+    setDeleteId(null);
   }
 
   // Start a refund with everything still returnable filled in, so one confirmation does it all.
@@ -131,6 +167,7 @@ export default function BillHistoryPage() {
     }
     setQty(prefill);
     setNote("");
+    setPaidNowText(null);
     setRefundError(null);
     setMode("refund");
   }
@@ -147,6 +184,9 @@ export default function BillHistoryPage() {
   const tooMuch = refundLines.some((l) => l.kg > l.left + 1e-9);
   const dueCancelled = detail ? Math.min(detail.dueNow, refundTotal) : 0;
   const cashBack = money(refundTotal - dueCancelled);
+  const paidNowNum = paidNowText === null ? cashBack : Number(paidNowText);
+  const paidNowValid = Number.isFinite(paidNowNum) && paidNowNum >= 0 && paidNowNum <= cashBack + 1e-9;
+  const stillOwedAfter = paidNowValid ? money(cashBack - paidNowNum) : 0;
 
   async function confirmRefund() {
     if (!detail) return;
@@ -156,12 +196,16 @@ export default function BillHistoryPage() {
       setRefundError("Enter how many kilos are being returned.");
       return;
     }
+    if (!paidNowValid) {
+      setRefundError(`Cash paid now must be between 0 and Rs ${formatNumber(cashBack)}.`);
+      return;
+    }
     setRefunding(true);
     try {
       const res = await fetch(`/api/bills/${detail.billId}/return`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, note }),
+        body: JSON.stringify({ items, note, cashPaidNow: money(paidNowNum) }),
       });
       const body = await res.json();
       if (!res.ok) {
@@ -169,6 +213,7 @@ export default function BillHistoryPage() {
         return;
       }
       setSlip(body.slip);
+      setSlipFresh(true);
       setMode("slip");
       const fresh = await loadDetail(detail.billId);
       if (fresh) setDetail(fresh);
@@ -180,8 +225,79 @@ export default function BillHistoryPage() {
     }
   }
 
+  // Pay the customer some or all of the refund money still owed on this bill.
+  async function payOwed() {
+    if (!detail) return;
+    setPayError(null);
+    setPayMessage(null);
+    const amount = Number(payAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setPayError("Enter the amount you are paying now.");
+      return;
+    }
+    setPaying(true);
+    try {
+      const res = await fetch(`/api/bills/${detail.billId}/refund-payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, note: payNote }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setPayError(body.error ?? "Could not record the payment");
+        return;
+      }
+      const fresh = await loadDetail(detail.billId);
+      if (fresh) {
+        setDetail(fresh);
+        setPayAmount(fresh.refundOwed > 0 ? String(fresh.refundOwed) : "");
+      }
+      setPayNote("");
+      setPayMessage(
+        body.stillOwed > 0
+          ? `Recorded: Rs ${formatNumber(body.paid)} paid. Rs ${formatNumber(body.stillOwed)} is still owed to the customer.`
+          : `Recorded: Rs ${formatNumber(body.paid)} paid. The customer is now paid in full.`
+      );
+      setReloadKey((k) => k + 1);
+    } catch {
+      setPayError("Something went wrong. Please try again.");
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  // Owner only: delete a refund (and its slip) as if it never happened.
+  async function removeRefund(returnId: string) {
+    if (!detail) return;
+    setPayError(null);
+    setPayMessage(null);
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/returns/${returnId}`, { method: "DELETE" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPayError(body.error ?? "Could not delete the refund");
+        setDeleteId(null);
+        return;
+      }
+      setDeleteId(null);
+      const fresh = await loadDetail(detail.billId);
+      if (fresh) {
+        setDetail(fresh);
+        setPayAmount(fresh.refundOwed > 0 ? String(fresh.refundOwed) : "");
+      }
+      setPayMessage("Refund deleted. The rice is back out of stock and the bill is as it was before.");
+      setReloadKey((k) => k + 1);
+    } catch {
+      setPayError("Something went wrong. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   const isOwner = data?.role === "OWNER";
   const shownBills = data?.bills.filter((b) => !onlyRefunded || b.returns.length > 0) ?? [];
+  const totalCols = isOwner ? 8 : 6;
   const returnedText = (items: { varietyName: string; packaging: string; qtyKg: number }[]) =>
     items.map((i) => `${formatNumber(i.qtyKg)} kg ${i.varietyName} (${packagingLabel(i.packaging)})`).join(", ");
 
@@ -233,12 +349,31 @@ export default function BillHistoryPage() {
         Show only bills with refunds
       </label>
 
+      {data && data.owedAll.count > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--warn-text)]/40 bg-[var(--warn-bg)] px-3 py-2 text-sm text-[var(--warn-text)]">
+          <span>
+            💸 You still owe customers <strong>Rs {formatNumber(data.owedAll.amount)}</strong> in refunds on{" "}
+            {data.owedAll.count} {data.owedAll.count === 1 ? "bill" : "bills"}.
+          </span>
+          <button
+            type="button"
+            onClick={() => setOnlyOwed((v) => !v)}
+            className="rounded-lg border border-[var(--warn-text)]/50 px-3 py-1 font-medium hover:brightness-110"
+          >
+            {onlyOwed ? "Show all bills" : "Show these bills"}
+          </button>
+        </div>
+      )}
+
       {data && (
         <div className="flex flex-wrap gap-6 text-sm">
           <Metric value={data.totals.count} label="bills" />
           <Metric value={`Rs ${formatNumber(data.totals.sales)}`} label="total sales (after refunds)" />
           {data.totals.refunded > 0 && (
             <Metric value={`Rs ${formatNumber(data.totals.refunded)}`} label="refunded" />
+          )}
+          {data.totals.owedToCustomers > 0 && (
+            <Metric value={`Rs ${formatNumber(data.totals.owedToCustomers)}`} label="owed back to customers" />
           )}
           <Metric value={`Rs ${formatNumber(data.totals.due)}`} label="still due" />
           {isOwner && data.totals.profit !== undefined && (
@@ -293,6 +428,11 @@ export default function BillHistoryPage() {
                           {b.refunded >= b.total - 0.005 ? "Fully refunded" : `Refunded ${formatNumber(b.refunded)}`}
                         </span>
                       )}
+                      {b.refundOwed > 0 && (
+                        <span className="ml-2 rounded bg-[var(--warn-bg)] px-1.5 py-0.5 text-xs font-medium text-[var(--warn-text)]">
+                          Owe customer {formatNumber(b.refundOwed)}
+                        </span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-2 text-[var(--foreground)]">
                       {paymentLabel(b.paymentMethod)}
@@ -310,11 +450,16 @@ export default function BillHistoryPage() {
                       onClick={() => openBill(b.id)}
                       className="cursor-pointer bg-[var(--danger-bg)]/40 hover:bg-[var(--surface-hover)]"
                     >
-                      <td colSpan={isOwner ? 8 : 6} className="px-4 pb-2 text-xs text-[var(--danger-text)]">
+                      <td colSpan={totalCols} className="px-4 pb-2 text-xs text-[var(--danger-text)]">
                         {b.returns.map((r, i) => (
                           <p key={i}>
                             <span className="font-semibold">↩ RETURNED:</span> {returnedText(r.items)} · Rs{" "}
-                            {formatNumber(r.refundAmount)} refunded · {formatWhen(r.returnDate)} · by {r.cashierName}
+                            {formatNumber(r.refundAmount)} refunded
+                            {r.cashRefunded > 0 &&
+                              (r.owed > 0
+                                ? ` (Rs ${formatNumber(r.paid)} paid, Rs ${formatNumber(r.owed)} still owed)`
+                                : " (paid in full)")}{" "}
+                            · {formatWhen(r.returnDate)} · by {r.cashierName}
                             {r.note ? ` · “${r.note}”` : ""}
                           </p>
                         ))}
@@ -340,7 +485,7 @@ export default function BillHistoryPage() {
             {mode === "slip" && slip ? (
               <>
                 <p className="rounded-lg bg-[var(--accent-strong)]/20 px-3 py-2 text-center text-sm font-medium text-[var(--foreground)]">
-                  Refund done. The rice is back in stock.
+                  {slipFresh ? "Refund done. The rice is back in stock." : "Refund slip. Print it again if the customer needs it."}
                 </p>
                 <ReturnSlipPrint slip={slip} showOnScreen />
               </>
@@ -352,13 +497,116 @@ export default function BillHistoryPage() {
                       ↩ {refundableItems.length === 0 ? "This bill was fully refunded" : "Part of this bill was refunded"}
                     </p>
                     {detail.returns.map((r) => (
-                      <p key={r.returnId} className="text-xs">
-                        {returnedText(r.items)} returned · Rs {formatNumber(r.refundAmount)} refunded ·{" "}
-                        {formatWhen(r.returnDate)} · by {r.cashierName}
-                        {r.note ? ` · “${r.note}”` : ""}
-                      </p>
+                      <div key={r.returnId} className="border-t border-[var(--danger-border)] py-1.5 first:border-t-0">
+                        <p className="text-xs">
+                          {returnedText(r.items)} returned · Rs {formatNumber(r.refundAmount)} refunded ·{" "}
+                          {formatWhen(r.returnDate)} · by {r.cashierName}
+                          {r.note ? ` · “${r.note}”` : ""}
+                        </p>
+                        {r.cashRefunded > 0 && (
+                          <p className="text-xs font-medium">
+                            Cash due Rs {formatNumber(r.cashRefunded)} · paid Rs {formatNumber(r.paid)}
+                            {r.owed > 0 ? ` · still owed Rs ${formatNumber(r.owed)}` : " · paid in full"}
+                          </p>
+                        )}
+                        {r.payments.length > 1 && (
+                          <p className="text-xs opacity-80">
+                            Payments:{" "}
+                            {r.payments.map((p) => `Rs ${formatNumber(p.amount)} (${formatWhen(p.paidAt)})`).join(", ")}
+                          </p>
+                        )}
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSlip(r);
+                              setSlipFresh(false);
+                              setMode("slip");
+                            }}
+                            className="rounded-lg border border-[var(--danger-border)] px-2.5 py-1 text-xs font-medium hover:bg-[var(--surface-hover)]"
+                          >
+                            🖨 Refund slip
+                          </button>
+                          {isOwner &&
+                            (deleteId === r.returnId ? (
+                              <span className="flex flex-wrap items-center gap-1.5 text-xs">
+                                <span>
+                                  Delete this refund? The rice goes back out of stock and the bill returns to how it was.
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={deleting}
+                                  onClick={() => removeRefund(r.returnId)}
+                                  className="rounded-lg bg-[var(--danger-text)] px-2.5 py-1 font-semibold text-black disabled:opacity-60"
+                                >
+                                  {deleting ? "Deleting..." : "Yes, delete"}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={deleting}
+                                  onClick={() => setDeleteId(null)}
+                                  className="rounded-lg px-2.5 py-1 font-medium hover:bg-[var(--surface-hover)]"
+                                >
+                                  Keep
+                                </button>
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteId(r.returnId)}
+                                className="rounded-lg px-2.5 py-1 text-xs font-medium hover:bg-[var(--surface-hover)]"
+                              >
+                                🗑 Delete refund
+                              </button>
+                            ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
+                )}
+
+                {mode === "receipt" && detail.refundOwed > 0 && (
+                  <div className="rounded-xl border border-[var(--warn-text)]/40 bg-[var(--warn-bg)] p-3 text-sm text-[var(--warn-text)]">
+                    <p className="font-semibold">
+                      Still owed to the customer: Rs {formatNumber(detail.refundOwed)}
+                    </p>
+                    <p className="mb-2 text-xs">Enter how much you are handing over now.</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min="0"
+                        aria-label="Amount paid to the customer now"
+                        value={payAmount}
+                        onChange={(e) => setPayAmount(e.target.value)}
+                        className="h-10 w-32 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none"
+                      />
+                      <input
+                        value={payNote}
+                        onChange={(e) => setPayNote(e.target.value)}
+                        placeholder="Note (optional)"
+                        maxLength={200}
+                        className="h-10 min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={payOwed}
+                      disabled={paying}
+                      className="mt-2 h-10 w-full rounded-lg bg-[var(--accent-strong)] font-medium text-black hover:brightness-110 disabled:opacity-60"
+                    >
+                      {paying ? "Saving..." : "Record payment to customer"}
+                    </button>
+                  </div>
+                )}
+                {mode === "receipt" && payError && (
+                  <p className="rounded-lg bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-text)]">{payError}</p>
+                )}
+                {mode === "receipt" && payMessage && (
+                  <p className="rounded-lg bg-[var(--accent-strong)]/20 px-3 py-2 text-sm text-[var(--foreground)]">
+                    {payMessage}
+                  </p>
                 )}
                 <ReceiptPrint receipt={detail.receipt} showOnScreen={mode === "receipt"} />
               </>
@@ -440,10 +688,47 @@ export default function BillHistoryPage() {
                     </div>
                   )}
                   <div className="flex justify-between font-semibold text-[var(--foreground)]">
-                    <span>Give back in cash</span>
+                    <span>Cash due to the customer</span>
                     <span>Rs {formatNumber(cashBack)}</span>
                   </div>
                 </div>
+
+                {cashBack > 0 && (
+                  <div className="mt-3 rounded-lg border border-[var(--border)] p-3 text-sm">
+                    <label className="mb-1 block font-medium text-[var(--foreground)]">Cash handing over now</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min="0"
+                        aria-label="Cash handed to the customer now"
+                        value={paidNowText ?? String(cashBack)}
+                        onChange={(e) => setPaidNowText(e.target.value)}
+                        className="h-10 w-32 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPaidNowText(null)}
+                        className="rounded-lg px-2 py-1 text-xs text-[var(--muted)] hover:bg-[var(--surface-hover)]"
+                      >
+                        Pay all
+                      </button>
+                    </div>
+                    {!paidNowValid ? (
+                      <p className="mt-1 text-xs text-[var(--danger-text)]">
+                        Must be between 0 and Rs {formatNumber(cashBack)}.
+                      </p>
+                    ) : stillOwedAfter > 0 ? (
+                      <p className="mt-1 text-xs font-medium text-[var(--warn-text)]">
+                        Rs {formatNumber(stillOwedAfter)} will stay owed to the customer. You can pay it later from this
+                        bill.
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-[var(--muted)]">The customer is paid in full.</p>
+                    )}
+                  </div>
+                )}
 
                 {tooMuch && (
                   <p className="mt-2 text-xs text-[var(--danger-text)]">That is more than was sold on this bill.</p>
@@ -497,7 +782,7 @@ export default function BillHistoryPage() {
                   <button
                     type="button"
                     onClick={confirmRefund}
-                    disabled={refunding || refundTotal <= 0 || tooMuch}
+                    disabled={refunding || refundTotal <= 0 || tooMuch || !paidNowValid}
                     className="h-11 flex-[2] rounded-lg bg-[var(--accent-strong)] font-medium text-black hover:brightness-110 disabled:opacity-50"
                   >
                     {refunding ? "Refunding..." : `Confirm refund · Rs ${formatNumber(refundTotal)}`}

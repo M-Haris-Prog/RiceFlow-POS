@@ -45,6 +45,12 @@ export const returnSchema = z.object({
     )
     .min(1, "Choose what is being returned"),
   note: z.string().trim().max(200).optional().or(z.literal("")),
+  cashPaidNow: z.coerce.number().min(0, "The amount paid cannot be negative").optional().nullable(),
+});
+
+export const refundPaymentSchema = z.object({
+  amount: z.coerce.number().positive("Enter the amount being paid"),
+  note: z.string().trim().max(200).optional().or(z.literal("")),
 });
 
 export const expenseSchema = z.object({
@@ -80,6 +86,7 @@ export const varietyUpdateSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 export type PurchaseInput = z.infer<typeof purchaseSchema>;
 export type ExpenseInput = z.infer<typeof expenseSchema>;
+export type RefundPaymentInput = z.infer<typeof refundPaymentSchema>;
 export type ReturnInput = z.infer<typeof returnSchema>;
 export type BillInput = z.infer<typeof billSchema>;
 export type VarietyCreateInput = z.infer<typeof varietyCreateSchema>;

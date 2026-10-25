@@ -18,6 +18,7 @@ model User {
   bills        Bill[]
   returns      BillReturn[]
   expenses     Expense[]
+  refundPayments RefundPayment[]
 }
 
 model Variety {
@@ -123,9 +124,25 @@ model BillReturn {
   createdById  String
   createdBy    User         @relation(fields: [createdById], references: [id])
   items        ReturnItem[]
+  // Cash handed to the customer for this refund. cashRefunded minus these is what the shop still owes them.
+  payments     RefundPayment[]
 
   @@index([billId])
   @@index([returnDate])
+}
+
+// Cash paid to a customer against a refund, now or later (a refund can be paid in parts).
+model RefundPayment {
+  id          String     @id @default(cuid())
+  returnId    String
+  return      BillReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  amount      Float
+  paidAt      DateTime   @default(now())
+  note        String?
+  createdById String
+  createdBy   User       @relation(fields: [createdById], references: [id])
+
+  @@index([returnId])
 }
 
 model ReturnItem {

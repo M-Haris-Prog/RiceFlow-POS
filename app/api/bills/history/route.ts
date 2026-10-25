@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { endOfShopDay, startOfShopDay } from "@/lib/dates";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
+import { getRefundOwedSummary, returnOwed } from "@/lib/returns";
 
 const MAX_BILLS = 300;
 
@@ -13,6 +14,9 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get("q") ?? "").trim().toLowerCase();
+  // "owed=1": every bill where a customer is still owed refund money, from any date.
+  const onlyOwed = searchParams.get("owed") === "1";
+  const owedSummary = await getRefundOwedSummary();
 
   // Cashiers only ever see today's bills, whatever dates they ask for.
   let from: Date | null;
@@ -31,7 +35,7 @@ export async function GET(request: Request) {
   }
 
   const bills = await prisma.bill.findMany({
-    where: { billDate: { gte: from, lte: to } },
+    where: onlyOwed ? { id: { in: owedSummary.billIds } } : { billDate: { gte: from, lte: to } },
     orderBy: { billNumber: "desc" },
     take: MAX_BILLS,
     include: {
@@ -40,6 +44,7 @@ export async function GET(request: Request) {
       returns: {
         orderBy: { returnDate: "asc" },
         include: {
+          payments: { select: { amount: true } },
           createdBy: { select: { displayName: true } },
           items: { include: { saleItem: { include: { variety: true } } } },
         },
@@ -67,10 +72,15 @@ export async function GET(request: Request) {
         itemCount: b.items.length,
         total: b.total,
         refunded,
+        // Cash still owed to the customer from refunds on this bill.
+        refundOwed: owedSummary.byBill.get(b.id) ?? 0,
         // What came back, so the list can say so: which rice, how much, who refunded it, when and why.
         returns: b.returns.map((r) => ({
           returnDate: r.returnDate.toISOString(),
           refundAmount: r.refundAmount,
+          cashRefunded: r.cashRefunded,
+          paid: returnOwed(r).paid,
+          owed: returnOwed(r).owed,
           cashierName: r.createdBy.displayName,
           note: r.note,
           items: r.items.map((i) => ({
@@ -96,10 +106,13 @@ export async function GET(request: Request) {
   return NextResponse.json({
     role: user.role,
     truncated: bills.length === MAX_BILLS,
+    // Across all dates, so the banner can warn even when the list is showing a different range.
+    owedAll: { count: owedSummary.count, amount: owedSummary.amount },
     totals: {
       count: rows.length,
       sales: rows.reduce((s, r) => s + r.netTotal, 0),
       refunded: rows.reduce((s, r) => s + r.refunded, 0),
+      owedToCustomers: rows.reduce((s, r) => s + r.refundOwed, 0),
       due: rows.reduce((s, r) => s + r.amountDue, 0),
       profit: user.role === "OWNER" ? rows.reduce((s, r) => s + (r.profit ?? 0), 0) : undefined,
     },

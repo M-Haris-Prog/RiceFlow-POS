@@ -41,6 +41,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       billId: id,
       items: parsed.data.items,
       note: parsed.data.note || null,
+      cashPaidNow: parsed.data.cashPaidNow ?? null,
       createdById: user.id,
     });
     return NextResponse.json({ ok: true, slip: toReturnSlip(result) });

@@ -46,8 +46,12 @@ export interface ReturnSlipData {
   refundAmount: number;
   // Part of the refund that only reduced what the customer still owed.
   dueReduced: number;
-  // Cash handed back.
+  // Cash the customer is due for this refund.
   cashRefunded: number;
+  // Cash actually handed over so far, and what the shop still owes (a refund can be paid in parts).
+  paid: number;
+  owed: number;
+  payments: { amount: number; paidAt: string }[];
   note: string | null;
 }
 
@@ -58,6 +62,7 @@ interface ReturnForSlip {
   dueReduced: number;
   cashRefunded: number;
   note: string | null;
+  payments: { amount: number; paidAt: Date }[];
   createdBy: { displayName: string };
   bill: { billNumber: number; customerName: string | null };
   items: {
@@ -68,6 +73,7 @@ interface ReturnForSlip {
 }
 
 export function toReturnSlip(r: ReturnForSlip): ReturnSlipData {
+  const paid = Math.round(r.payments.reduce((sum, p) => sum + p.amount, 0) * 100) / 100;
   return {
     returnId: r.id,
     billNumber: r.bill.billNumber,
@@ -83,6 +89,9 @@ export function toReturnSlip(r: ReturnForSlip): ReturnSlipData {
     refundAmount: r.refundAmount,
     dueReduced: r.dueReduced,
     cashRefunded: r.cashRefunded,
+    paid,
+    owed: Math.max(0, Math.round((r.cashRefunded - paid) * 100) / 100),
+    payments: r.payments.map((p) => ({ amount: p.amount, paidAt: p.paidAt.toISOString() })),
     note: r.note,
   };
 }

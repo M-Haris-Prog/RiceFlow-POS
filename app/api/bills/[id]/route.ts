@@ -3,7 +3,7 @@ import { isToday } from "@/lib/dates";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { toReceipt, toReturnSlip, type ReturnableItem } from "@/lib/receipt";
-import { perKgValue } from "@/lib/returns";
+import { perKgValue, returnOwed } from "@/lib/returns";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -20,6 +20,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       returns: {
         orderBy: { returnDate: "asc" },
         include: {
+          payments: { orderBy: { paidAt: "asc" } },
           createdBy: { select: { displayName: true } },
           bill: { select: { billNumber: true, customerName: true } },
           items: { include: { saleItem: { include: { variety: true } } } },
@@ -31,8 +32,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Bill not found" }, { status: 404 });
   }
 
+  // What the shop still owes this customer from refunds on this bill.
+  const refundOwed = Math.round(bill.returns.reduce((sum, r) => sum + returnOwed(r).owed, 0) * 100) / 100;
+
+  // Cashiers open today's bills, and any older bill where a customer is still owed money back.
   if (user.role === "CASHIER") {
-    if (!isToday(bill.billDate)) {
+    if (!isToday(bill.billDate) && refundOwed <= 0) {
       return NextResponse.json({ error: "Not allowed" }, { status: 403 });
     }
   }
@@ -55,6 +60,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     returns: bill.returns.map(toReturnSlip),
     refunded,
     dueNow,
+    refundOwed,
   };
 
   if (user.role === "CASHIER") {
