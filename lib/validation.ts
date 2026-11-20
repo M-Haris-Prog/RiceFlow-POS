@@ -13,8 +13,25 @@ export const purchaseSchema = z.object({
   packaging: packagingSchema,
   qtyKg: z.coerce.number().positive("Quantity must be greater than 0"),
   ratePerKg: z.coerce.number().positive("Rate must be greater than 0"),
+  sellingPricePerKg: z.coerce.number().min(0, "Selling price cannot be negative").optional().nullable(),
   purchaseDate: z.coerce.date(),
   supplierName: z.string().trim().optional().or(z.literal("")),
+});
+
+export const bulkPurchaseSchema = z.object({
+  varietyName: z.string().trim().min(1, "Variety is required"),
+  purchaseDate: z.coerce.date(),
+  supplierName: z.string().trim().optional().or(z.literal("")),
+  entries: z
+    .array(
+      z.object({
+        packaging: packagingSchema,
+        qtyKg: z.coerce.number().positive("Quantity must be greater than 0"),
+        ratePerKg: z.coerce.number().positive("Rate must be greater than 0"),
+        sellingPricePerKg: z.coerce.number().min(0, "Selling price cannot be negative").optional().nullable(),
+      })
+    )
+    .min(1, "At least one packaging entry (Bag or Open) must have quantity and rate"),
 });
 
 export const billItemSchema = z.object({

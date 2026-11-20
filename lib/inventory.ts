@@ -20,6 +20,7 @@ interface RecordPurchaseInput {
   packaging: Packaging;
   qtyKg: number;
   ratePerKg: number;
+  sellingPricePerKg?: number | null;
   purchaseDate: Date;
   supplierName?: string | null;
   createdById: string;
@@ -38,7 +39,11 @@ export async function recordPurchase(input: RecordPurchaseInput) {
     const stock = await tx.stockItem.upsert({
       where: { varietyId_packaging: { varietyId: variety.id, packaging: input.packaging } },
       update: {},
-      create: { varietyId: variety.id, packaging: input.packaging },
+      create: {
+        varietyId: variety.id,
+        packaging: input.packaging,
+        pricePerKg: input.sellingPricePerKg && input.sellingPricePerKg > 0 ? input.sellingPricePerKg : 0,
+      },
     });
 
     // If this stock was deleted earlier, buying it again brings it back starting from zero.
@@ -60,9 +65,24 @@ export async function recordPurchase(input: RecordPurchaseInput) {
       },
     });
 
+    const updateData: {
+      currentStockKg: number;
+      avgCostPerKg: number;
+      archivedAt: null;
+      pricePerKg?: number;
+    } = {
+      currentStockKg: newStock,
+      avgCostPerKg: newAvgCost,
+      archivedAt: null,
+    };
+
+    if (input.sellingPricePerKg !== undefined && input.sellingPricePerKg !== null && input.sellingPricePerKg > 0) {
+      updateData.pricePerKg = input.sellingPricePerKg;
+    }
+
     await tx.stockItem.update({
       where: { id: stock.id },
-      data: { currentStockKg: newStock, avgCostPerKg: newAvgCost, archivedAt: null },
+      data: updateData,
     });
 
     return purchase;

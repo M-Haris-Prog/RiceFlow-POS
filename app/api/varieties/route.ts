@@ -60,6 +60,80 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
+
+  // Side-by-side bulk creation for Bag & Open together
+  if (body && Array.isArray(body.entries)) {
+    if (!body.name || typeof body.name !== "string" || !body.name.trim()) {
+      return NextResponse.json({ error: "Variety name is required" }, { status: 400 });
+    }
+    const name = body.name.trim();
+    const category = body.category?.trim() || null;
+
+    if (body.entries.length === 0) {
+      return NextResponse.json({ error: "Choose at least Bag or Open" }, { status: 400 });
+    }
+
+    const existing = await prisma.variety.findUnique({
+      where: { name },
+      include: { stocks: true },
+    });
+
+    const variety = existing
+      ? await prisma.variety.update({
+          where: { id: existing.id },
+          data: category ? { category } : {},
+        })
+      : await prisma.variety.create({
+          data: { name, category },
+        });
+
+    for (const entry of body.entries) {
+      const packaging = entry.packaging as "BAG" | "OPEN";
+      const existingStock = existing?.stocks.find((s) => s.packaging === packaging);
+      const pricePerKg = Number(entry.pricePerKg || 0);
+      const reorderLevel = Number(entry.reorderLevel || 0);
+      const openingStockKg = Number(entry.openingStockKg || 0);
+      const costPerKg = Number(entry.costPerKg || 0);
+
+      if (existingStock) {
+        await prisma.stockItem.update({
+          where: { id: existingStock.id },
+          data: {
+            archivedAt: null,
+            currentStockKg: 0,
+            avgCostPerKg: 0,
+            pricePerKg,
+            reorderLevel,
+          },
+        });
+      } else {
+        await prisma.stockItem.create({
+          data: {
+            varietyId: variety.id,
+            packaging,
+            pricePerKg,
+            reorderLevel,
+          },
+        });
+      }
+
+      if (openingStockKg > 0) {
+        await recordPurchase({
+          varietyName: name,
+          packaging,
+          qtyKg: openingStockKg,
+          ratePerKg: costPerKg,
+          sellingPricePerKg: pricePerKg,
+          purchaseDate: new Date(),
+          supplierName: "Opening stock",
+          createdById: user.id,
+        });
+      }
+    }
+
+    return NextResponse.json({ ok: true });
+  }
+
   const parsed = varietyCreateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(

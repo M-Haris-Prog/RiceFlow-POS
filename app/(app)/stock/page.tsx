@@ -91,18 +91,32 @@ export default function StockPage() {
   };
 
   async function handleCreate(values: VarietyFormValues) {
+    const payload = values.entries
+      ? {
+          name: values.name,
+          category: values.category,
+          entries: values.entries.map((e) => ({
+            packaging: e.packaging,
+            pricePerKg: Number(e.pricePerKg || 0),
+            reorderLevel: Number(e.reorderLevel || 0),
+            openingStockKg: Number(e.openingStockKg || 0),
+            costPerKg: Number(e.costPerKg || 0),
+          })),
+        }
+      : {
+          name: values.name,
+          category: values.category,
+          pricePerKg: Number(values.pricePerKg || 0),
+          reorderLevel: Number(values.reorderLevel || 0),
+          packaging: values.packaging,
+          openingStockKg: Number(values.openingStockKg || 0),
+          costPerKg: Number(values.costPerKg || 0),
+        };
+
     const res = await fetch("/api/varieties", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: values.name,
-        category: values.category,
-        pricePerKg: Number(values.pricePerKg || 0),
-        reorderLevel: Number(values.reorderLevel || 0),
-        packaging: values.packaging,
-        openingStockKg: Number(values.openingStockKg || 0),
-        costPerKg: Number(values.costPerKg || 0),
-      }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (!res.ok) return data.error ?? "Could not add variety";
